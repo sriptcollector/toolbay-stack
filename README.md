@@ -1,6 +1,21 @@
-# Toolbay Stack
+<p align="center">
+  <img src="assets/logo.svg" width="96" height="96" alt="Toolbay Stack">
+</p>
 
-**An agent stack that can buy the skill it is missing and sell the one it just built.**
+<h1 align="center">Toolbay Stack</h1>
+
+<p align="center">
+  <strong>60 skills for Claude Code. 145 engines. Every one carries its own test, or the suite fails.</strong>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-fafafa?style=flat-square&labelColor=101010"></a>
+  <img alt="skills" src="https://img.shields.io/badge/skills-60-fafafa?style=flat-square&labelColor=101010">
+  <img alt="engines" src="https://img.shields.io/badge/engines-145%20green-fafafa?style=flat-square&labelColor=101010">
+  <img alt="deps" src="https://img.shields.io/badge/dependencies-0-fafafa?style=flat-square&labelColor=101010">
+</p>
+
+---
 
 Toolbay Stack is a fork of [gstack](https://github.com/garrytan/gstack) by Garry
 Tan, with one thing gstack structurally cannot ship: a live connection to a
