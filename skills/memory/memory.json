@@ -1,0 +1,483 @@
+{
+  "_readme": [
+    "THIS FILE IS YOURS. Edit it. It is the entire memory policy.",
+    "",
+    "WHAT THIS LAYER IS FOR. Claude's own memory saves FACTS and keeps them",
+    "forever. This one saves the moment you said 'no, not like that' — because the",
+    "highest-signal second in any session is the one where you correct the agent,",
+    "and the reason behind the correction is the part that transfers to the next",
+    "task. So what TRIGGERS a write matters more than where the write lands.",
+    "",
+    "  correction   you rejected or redirected what it did. The actual preference.",
+    "  frustration  you repeated yourself. That is a memory FAILURE alarm, and what",
+    "               gets recorded is what we should already have known.",
+    "  frequency    what you ask for over and over, so it can be loaded BEFORE you",
+    "               ask for it again.",
+    "  constraint   a fixed fact about how you work that bounds everything.",
+    "  preference   a plain like/dislike you stated without being asked.",
+    "",
+    "The code knows NONE of those names. They are keys in \"kinds\" below. Add one,",
+    "rename one, delete one, change what it is worth. `tb-memory status` prints",
+    "what the layer read back.",
+    "",
+    "DECAY AND SUPERSEDE. A memory that only accumulates is a memory that rots. An",
+    "entry loses weight with age at its kind's halfLifeDays, gains it back each",
+    "time it is reinforced, and drops out of recall entirely below \"floor\". An",
+    "entry you superseded on purpose leaves recall immediately. Nothing supersedes",
+    "anything on its own — see CONFLICT below, which is the whole of that story.",
+    "Nothing is deleted by decay: `list` and `export` still show everything, so",
+    "'what do you have on me' always has a complete answer.",
+    "",
+    "CONFLICT, NOT SILENT SUPERSEDE. A newer entry does NOT quietly win. When a new",
+    "entry contradicts one you already gave, both are kept, neither is applied, and",
+    "the pair is surfaced with both dates and both reasons until you say which of",
+    "the three things is true: the new one replaces it, they are both true in",
+    "different contexts, or the old one was wrong. See \"conflicts\" below.",
+    "",
+    "SCOPE. 'no em dashes' is global. 'use tabs' is one project. Every entry carries",
+    "a scope, and recall only returns what applies where you are. When the scope",
+    "cannot be read off what you said, the NARROWER one is chosen, because wrongly",
+    "globalising a local rule silently changes behaviour everywhere while wrongly",
+    "localising a global one merely fails to apply. See \"scopes\" below.",
+    "",
+    "STATED vs INFERRED. Every entry records WHERE it came from: you said it, it was",
+    "imported from a file you already had, or the agent derived it. A derived trait",
+    "is never shown with the confidence of something you said, is always linked to",
+    "the entries that produced it, can be rejected in one command, and can never",
+    "supersede something you actually stated. See \"sources\" and \"traits\" below.",
+    "",
+    "TWO THINGS YOU CANNOT EDIT AWAY FROM THIS FILE, both deliberate:",
+    "  1. THE OPT-IN. There is no setting here that turns capture on. It is off",
+    "     until you run `tb-memory enable --yes` on this machine, and until then",
+    "     `record` stores NOTHING. Consent lives in your state directory, not in",
+    "     this file, so reinstalling the skill can never re-enable it for you.",
+    "  2. THE STRIPPING. Credentials are removed before anything is written to disk",
+    "     and before anything is sent to your account, by the same stripper the",
+    "     Toolbay Connect client uses. You can make the never-capture rules",
+    "     TIGHTER here. There is no way to make them looser.",
+    "",
+    "IF THIS FILE IS MISSING, EMPTY, CORRUPT, OR DEFINES NO KINDS, memory turns",
+    "ITSELF OFF, says why, and exits zero. It does not guess a default policy and",
+    "start recording against it. For a stance layer, failing closed means falling",
+    "back to a careful stance; for a memory layer it means capturing nothing."
+  ],
+
+  "version": 1,
+
+  "kinds": {
+    "correction": {
+      "label": "correction",
+      "summary": "You rejected or redirected what the agent did.",
+      "_why": "This is the whole thesis. The moment of 'no, not like that' is worth more than a hundred facts, because it is the only signal that carries what you actually wanted instead.",
+      "weight": 10,
+      "halfLifeDays": 540,
+      "requireWhy": true,
+      "supersedes": true,
+      "signals": [
+        "no, not like that",
+        "don't do it that way",
+        "that's not what i asked",
+        "undo that",
+        "revert that",
+        "why did you",
+        "i said",
+        "stop doing",
+        "never do that",
+        "wrong"
+      ]
+    },
+    "frustration": {
+      "label": "frustration",
+      "summary": "You had to say it again. Something should already have been known.",
+      "_why": "Repeats are the alarm on this whole system. What gets written is not the annoyance, it is the thing we failed to remember. If this kind is filling up, the memory is not working.",
+      "weight": 9,
+      "halfLifeDays": 400,
+      "requireWhy": true,
+      "supersedes": true,
+      "signals": [
+        "i already told you",
+        "i just said",
+        "again",
+        "for the third time",
+        "as i said",
+        "we talked about this",
+        "you keep",
+        "every time"
+      ]
+    },
+    "frequency": {
+      "label": "frequency",
+      "summary": "Something you ask for over and over, so it can be loaded before you ask.",
+      "_why": "The cheapest win in the system: a thing asked for five times should be offered on the sixth without being asked for at all.",
+      "weight": 6,
+      "halfLifeDays": 180,
+      "requireWhy": false,
+      "supersedes": false,
+      "signals": ["always", "every time i", "as usual", "same as last time", "like we normally do"]
+    },
+    "constraint": {
+      "label": "constraint",
+      "summary": "A fixed fact about how you work that bounds everything else.",
+      "_why": "Windows, node 18, no docker, no new dependencies. Cheap to state once, expensive to rediscover three wrong turns later.",
+      "weight": 8,
+      "halfLifeDays": 900,
+      "requireWhy": false,
+      "supersedes": true,
+      "signals": ["i'm on", "we use", "we don't use", "this project uses", "no new dependencies", "must run on"]
+    },
+    "preference": {
+      "label": "preference",
+      "summary": "A like or a dislike you stated without being asked.",
+      "_why": "Kept lighter than a correction on purpose. A stated taste is real, but a taste you enforced by rejecting work is realer.",
+      "weight": 5,
+      "halfLifeDays": 240,
+      "requireWhy": false,
+      "supersedes": true,
+      "signals": ["i like", "i prefer", "i hate", "i don't like", "keep it", "yes, exactly that", "that's perfect"]
+    }
+  },
+
+  "never": {
+    "_why": [
+      "The rule is: store PREFERENCES AND PATTERNS, never source and never secrets.",
+      "Everything below is refused BEFORE the entry is written, and the refusal says",
+      "which rule caught it. Tighten these freely. They cannot be loosened past the",
+      "credential stripper, which runs on every field regardless of what is here."
+    ],
+    "maxTextChars": 500,
+    "maxLines": 6,
+    "codeMarkers": ["```", "function ", "const ", "let ", "var ", "def ", "class ", "import ", "require(", "=>", "SELECT ", "INSERT ", "#!/", "</", "/>"],
+    "codeMarkerThreshold": 2,
+    "pathMarkers": ["/Users/", "C:\\\\Users\\\\", "/home/", ".env", "id_rsa", ".ssh/", ".aws/", "credentials.json"],
+    "categoriesShownToUser": [
+      "credentials of any kind (stripped before the write, then the entry is flagged)",
+      "the contents of your source files, and anything that reads as code",
+      "file paths that point inside your home directory or at a credentials file",
+      "anything longer than a few lines: this stores preferences, not documents",
+      "prompts, transcripts, diffs, logs, or the agent's own output"
+    ]
+  },
+
+  "decay": {
+    "_why": "Newer beats older, and quiet beats loud. An entry nobody has reinforced in a year should not still be steering the work.",
+    "floor": 0.2,
+    "reinforceBonus": 0.15,
+    "maxReinforceMultiplier": 2
+  },
+
+  "recall": {
+    "limit": 8,
+    "alwaysIncludeKinds": ["constraint"],
+    "_why": "A constraint is not a matter of relevance ranking. If you cannot use docker, that is true of every request, so it is loaded whether or not the words match. It is still filtered by SCOPE: a constraint you stated about one project is not true of every request, only of every request in that project."
+  },
+
+  "sources": {
+    "_why": [
+      "WHERE AN ENTRY CAME FROM, which is not the same question as what it says.",
+      "'You optimise for shipping speed' derived from six corrections is a useful",
+      "guess. It is not a thing you said, and showing it with the same confidence as",
+      "a thing you said is how a memory layer starts inventing you. So every entry",
+      "carries a source, the source is shown wherever the entry is, and a lower",
+      "authority can never overrule a higher one: an imported line cannot supersede",
+      "something you stated, and an inference is not an entry at all.",
+      "",
+      "`record` only ever writes `stated`. `import` only ever writes `imported`.",
+      "`inferred` is reserved for derived traits, which live outside the entry list."
+    ],
+    "ranks": { "stated": 3, "imported": 2, "inferred": 1 },
+    "labels": {
+      "stated": "you said this",
+      "imported": "imported from a file you already had, not said in a session",
+      "inferred": "derived by the agent from your corrections. You never said it."
+    }
+  },
+
+  "scopes": {
+    "_why": [
+      "A preference set in one project silently breaking another is the single most",
+      "expensive failure a memory layer has, because the damage happens somewhere you",
+      "are not looking. So scope is not optional and there is no flat mode.",
+      "",
+      "  global   true everywhere. Only chosen when you SAY it is everywhere.",
+      "  project  true in one repo. The default when nothing says otherwise.",
+      "  path     true for one language or file pattern. Narrower still.",
+      "",
+      "THE TIE-BREAK IS ALWAYS NARROWER. If the scope cannot be read off what you",
+      "said, `project` is used, never `global`. Widening later is one command and",
+      "costs you nothing; a local rule that leaked into every project costs you a",
+      "week of wondering why the agent changed."
+    ],
+    "default": "project",
+    "levels": {
+      "global": { "label": "everywhere", "rank": 0 },
+      "project": { "label": "this project", "rank": 1 },
+      "path": { "label": "these files", "rank": 2 }
+    },
+    "globalSignals": [
+      "in every project",
+      "in all my projects",
+      "in all projects",
+      "across all projects",
+      "everywhere",
+      "globally",
+      "as a general rule",
+      "no matter the project",
+      "always, in every",
+      "for all my work"
+    ],
+    "projectSignals": ["in this project", "in this repo", "in this codebase", "here in", "for this app", "on this project"],
+    "pathSignals": ["in .", "in *.", "in tests", "in test files", "in migrations", "for .", "in the tests"],
+    "languages": ["python", "typescript", "javascript", "rust", "go", "swift", "ruby", "java", "kotlin", "css", "html", "sql", "bash", "powershell", "markdown"]
+  },
+
+  "conflicts": {
+    "_why": [
+      "A newer correction winning silently is how one project's preference breaks",
+      "another. So a contradiction is DETECTED and SURFACED, and the resolution is",
+      "always yours. Both entries stay in the store, neither is applied to work, and",
+      "recall shows the pair with both dates and both reasons until you choose.",
+      "",
+      "Three resolutions, because these are the only three things that can be true:",
+      "  replace       the new one is right and the old one is finished",
+      "  contexts      both are true, in different scopes. Requires distinct scopes,",
+      "                because 'both, in different contexts' with the same context is",
+      "                not a resolution, it is the contradiction restated.",
+      "  old-was-wrong the old one was never right. It is retracted, not superseded.",
+      "",
+      "A candidate that cannot be classified is SURFACED, never dropped. Over-asking",
+      "is a nuisance; silently picking a side is a bug you cannot see."
+    ],
+    "similarityThreshold": 0.5,
+    "maxRivalsPerEntry": 3,
+    "resolutions": {
+      "replace": "the new one replaces it",
+      "contexts": "they are both true, in different contexts",
+      "old-was-wrong": "the old one was wrong"
+    }
+  },
+
+  "traits": {
+    "_why": [
+      "The point of remembering is generalising to a situation never seen before.",
+      "'They dislike X' does not transfer. 'They optimise for shipping speed,",
+      "therefore X' does. So traits are derived from accumulated entries — but a",
+      "derivation is a guess about a person, which is the most dangerous thing in",
+      "this package, so all four rules below are load-bearing:",
+      "",
+      "  1. Every trait links to the exact entries that produced it. No evidence, no",
+      "     trait. Delete the evidence and the trait goes with it.",
+      "  2. A trait is never shown as something you said. It is labelled inferred",
+      "     wherever it appears, and it lives outside the entry list entirely.",
+      "  3. A stated entry matching `contradictedBy` kills the trait outright. An",
+      "     inference never gets to argue with a statement.",
+      "  4. `reject-trait <key>` removes it and stops it being derived again.",
+      "",
+      "SIGNALS ARE MATCHED AS WHOLE PHRASES, NOT SUBSTRINGS, and that is not a",
+      "detail. Run against a real CLAUDE.md, the one-word signal \"prove\" matched",
+      "\"the safe or proven play\" and \"ship\" matched a list of slash-commands",
+      "containing \"/ship\" — a claim about how somebody works, assembled out of",
+      "coincidences and then stated with confidence. Prefer a phrase somebody would",
+      "actually type over a single generic word. A trait on weak evidence is worse",
+      "than no trait at all.",
+      "",
+      "Add a trait by adding a key. The code knows none of these names."
+    ],
+    "minEvidence": 2,
+    "maxShown": 3,
+    "confidence": { "high": 4, "medium": 3 },
+    "catalog": {
+      "ships-fast": {
+        "label": "optimises for shipping speed",
+        "statement": "You optimise for shipping over completeness. Prefer the smallest slice that works and can be verified, and offer the thorough version as a follow-up instead of doing it first.",
+        "signals": ["ship it", "just ship", "ship the", "shipping", "smallest slice", "smallest thing", "mvp", "launch it", "gold-plate", "stop polishing", "get it out the door", "good enough to ship"],
+        "contradictedBy": ["take your time", "be thorough", "no shortcuts", "completeness over speed", "do it properly first"]
+      },
+      "wants-it-terse": {
+        "label": "wants terse output",
+        "statement": "You want the answer, not the reasoning around it. Lead with the result, use lists over prose, and cut anything that restates what you can already see.",
+        "signals": ["terse", "shorter", "concise", "no preamble", "stop explaining", "wall of text", "walls of text", "too long", "summary only", "just tell me", "fewer words", "keep it short"],
+        "contradictedBy": ["explain it in detail", "more context please", "walk me through", "be verbose"]
+      },
+      "verifies-before-believing": {
+        "label": "does not accept unverified work",
+        "statement": "You treat 'it should work' as not done. Run the changed path, look at the real output, and say exactly what was checked, or say plainly that it was not checked.",
+        "signals": ["verify", "verifying", "verified it", "did you actually", "screenshot it", "don't claim", "you said it worked", "check it yourself", "prove it", "actually run", "not verified"],
+        "contradictedBy": ["don't bother testing", "skip the tests", "no need to verify"]
+      },
+      "acts-without-asking": {
+        "label": "wants action, not confirmation",
+        "statement": "You want the work done rather than proposed. Pick the reasonable option, do it, and report after, keeping the question for things that are genuinely irreversible.",
+        "signals": ["don't ask", "do not ask", "stop asking", "just do it", "act first", "no confirmation", "without asking", "quit asking", "why are you asking"],
+        "contradictedBy": ["ask me first", "check with me before", "always confirm", "don't touch anything without asking"]
+      },
+      "guards-the-blast-radius": {
+        "label": "keeps changes small and contained",
+        "statement": "You want the change and nothing but the change. No new dependencies, no drive-by refactors, no reformatting of code you were only passing through.",
+        "signals": ["no new dependencies", "don't refactor", "smallest change", "leave the rest alone", "stay in scope", "why did you touch", "don't rewrite", "out of scope"],
+        "contradictedBy": ["clean it all up", "refactor everything", "modernise the whole file"]
+      }
+    }
+  },
+
+  "import": {
+    "_why": [
+      "A new install starting from zero when the person already wrote all of this",
+      "down is waste. A CLAUDE.md, a gstack learnings store, and a plain markdown",
+      "context file are all somebody's preferences in a file, so they are seeds.",
+      "",
+      "Imported lines are NOT things you said in a session, and they are marked that",
+      "way forever. They go through the same credential stripping and the same",
+      "never-capture rules as anything else, nothing is written until you have seen",
+      "the list, and one command puts it all back the way it was."
+    ],
+    "maxPerImport": 60,
+    "minTextChars": 12,
+    "globalWhenUnderHome": true,
+    "ruleMarkers": ["never", "always", "do not", "don't", "must", "avoid", "prefer", "use ", "no ", "only ", "stop ", "keep ", "ensure", "required", "should", "instead of"],
+    "constraintMarkers": ["never", "must", "no ", "always", "only ", "required", "cannot", "don't", "do not"],
+    "kindMap": {
+      "preference": "preference",
+      "pattern": "preference",
+      "pitfall": "constraint",
+      "architecture": "constraint",
+      "tool": "constraint",
+      "operational": "constraint",
+      "investigation": "preference"
+    }
+  },
+
+  "community": {
+    "_why": [
+      "Defaults that many people converged on are worth having on a fresh machine,",
+      "and are worth exactly nothing if they quietly outrank what you told the agent",
+      "yourself. So: receiving and contributing are two separate opt-ins, receiving",
+      "never requires contributing, community defaults are shown in their own",
+      "section and never mixed with yours, and any default you have your own rule",
+      "about is dropped rather than merged.",
+      "",
+      "WHAT THE SERVER SENDS, which shapes what this side can check. Each pattern",
+      "is a sentence TOOLBAY authored for a topic, never anyone's own words, and it",
+      "carries NO contributor count on purpose — a number you could watch move is a",
+      "number you could use to work out who moved it. Breadth arrives as one of",
+      "three coarse bands (emerging / common / widespread) plus the k the whole",
+      "response was computed at.",
+      "",
+      "So the client-side privacy check is not 'is this pattern popular enough',",
+      "which the response deliberately cannot answer. It is: DOES THIS RESPONSE SAY",
+      "WHAT K IT WAS COMPUTED AT, AND IS THAT K AT LEAST minK. A response that",
+      "cannot say, or says a smaller number than the server's own documented floor,",
+      "is refused whole. A client that trusts a server to have done the privacy work",
+      "is a client with no privacy story of its own.",
+      "",
+      "minK is the server's own K_ANONYMITY_FLOOR. Raise it here if you want a",
+      "higher bar than the service promises. Lowering it below the floor buys",
+      "nothing: the server will not emit anything computed at less than that.",
+      "",
+      "If the endpoint does not exist, needs a token you do not have, times out,",
+      "errors, or answers with something unusable, memory behaves exactly as it does",
+      "with the feature switched off and says which. It is never allowed to block or",
+      "to fail a recall."
+    ],
+    "endpoint": "/api/v1/memory/common",
+    "settingsEndpoint": "/api/v1/memory/settings",
+    "minK": 5,
+    "adoptionBands": ["emerging", "common", "widespread"],
+    "max": 5,
+    "cacheHours": 24
+  },
+
+  "limits": {
+    "maxEntries": 400,
+    "_why": "A cap you hit is a signal that something is being recorded that should not be. On overflow the lowest-scoring entry is dropped and the drop is reported, never silent."
+  },
+
+  "sync": {
+    "_why": "Your memory follows your Toolbay account, so a new machine is not a blank agent. Sync is best-effort by design: no token, no network, or a server error all leave local memory working and say so. A sync can never lose a local entry.",
+    "baseUrl": "https://toolbay.ai",
+    "endpoints": {
+      "sync": "/api/v1/memory/sync",
+      "list": "/api/v1/memory",
+      "delete": "/api/v1/memory/:id",
+      "export": "/api/v1/memory/export"
+    },
+    "timeoutMs": 8000
+  },
+
+  "disclosure": {
+    "title": "Before you turn this on, here is exactly what it does",
+    "captured": [
+      "Corrections: when you tell the agent it got something wrong, and WHY.",
+      "Frustration: when you have to repeat yourself. The note records what we should have known.",
+      "What you ask for repeatedly, so it can be offered before you ask again.",
+      "Constraints and stated likes or dislikes, in one short line each.",
+      "The SCOPE each of those applies to, so a rule for one project stays in it.",
+      "Traits derived from the above, always labelled as derived and never as something you said, always linked to the entries they came from, and rejectable in one command.",
+      "Only what you import on purpose: `import` shows you every line before it writes anything, and `unimport` puts it back."
+    ],
+    "neverCaptured": [
+      "Credentials. Stripped before the write and before the upload, by the same stripper the Toolbay client uses.",
+      "The contents of your code. This stores what you like, never what you wrote.",
+      "Your prompts, transcripts, file paths, diffs, or logs.",
+      "Anything from a project you did not turn this on for. It is off everywhere until you turn it on."
+    ],
+    "whereItGoes": [
+      "A JSON file on this machine, under your Toolbay Stack state directory. That is the only copy until you sync.",
+      "If you run `sync` and you have a Toolbay token, entries also go to your Toolbay account, so a second machine is not a blank agent. No token means local only, forever, with no nagging.",
+      "Nowhere else. There is no telemetry in this package and no third host.",
+      "Community defaults are a separate, second opt-in and they only ever come IN. `community on` receives them; it does not send anything. Sending is a third, independent opt-in (`community contribute on`) and receiving never requires it."
+    ],
+    "howToDelete": [
+      "`tb-memory list` shows every entry with its id.",
+      "`tb-memory forget <id>` deletes it here and asks your account to delete it too.",
+      "`tb-memory disable` stops all capture. `tb-memory disable --forget-everything` stops it AND wipes the local store.",
+      "`tb-memory export` hands you the whole file, so 'what do you have on me' is always answerable in full."
+    ]
+  },
+
+  "onboarding": {
+    "title": "How to get better work out of the agent",
+    "subtitle": "Sixty seconds. This is the part that actually changes your output.",
+    "lessons": [
+      {
+        "heading": "1. Say what \"done\" looks like, before it starts",
+        "weak": "add some tests",
+        "strong": "add tests for the empty-cart and expired-token paths. Done when `npm test` is green and both fail if I revert the fix.",
+        "note": "An agent optimises for the finish line you draw. Draw one."
+      },
+      {
+        "heading": "2. Say what you do NOT want",
+        "weak": "make it nice",
+        "strong": "no new dependencies, don't refactor anything you're passing through, no comments restating the code.",
+        "note": "This is the half almost everyone skips, and it is the half that prevents rework."
+      },
+      {
+        "heading": "3. Correct it out loud, in the moment, and say WHY",
+        "weak": "no, redo it",
+        "strong": "no, don't put it in utils.js. Shared code goes in src/lib so the bundler can tree-shake it.",
+        "note": "The why is the part that transfers to the next task. Without it, you will be repeating yourself within the hour."
+      },
+      {
+        "heading": "4. Put your constraints up front, not after the third attempt",
+        "weak": "(nothing, then three wrong turns)",
+        "strong": "windows, powershell, node 18, no docker, this repo deploys to Railway not Vercel.",
+        "note": "One line at the start is worth more than any correction later."
+      },
+      {
+        "heading": "5. Tell it what you LIKE, not only what is wrong",
+        "weak": "(silence when it gets it right)",
+        "strong": "yes, exactly that. Keep the tables terse like that from now on.",
+        "note": "Praise is as specific a signal as a complaint, and far rarer, so it is worth more."
+      }
+    ],
+    "closing": [
+      "WHY THIS MATTERS HERE, SPECIFICALLY.",
+      "Telling the agent what you like and what you don't is what makes this stack better for you.",
+      "Every correction you say out loud is fuel: it gets kept, it outranks older ones, and it is",
+      "loaded back in before the next piece of work starts. Corrections are not friction, they are",
+      "the input. An agent you fix silently learns nothing, and you will fix the same thing next week.",
+      "",
+      "Nothing is kept until you turn it on: `tb-memory enable`. Nothing is kept that you cannot see:",
+      "`tb-memory status`. Nothing is kept that you cannot delete: `tb-memory forget <id>`."
+    ]
+  }
+}

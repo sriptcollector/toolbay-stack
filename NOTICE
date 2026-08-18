@@ -1,0 +1,127 @@
+Toolbay Stack
+=============
+
+Toolbay Stack is built on gstack by Garry Tan.
+
+    gstack
+    https://github.com/garrytan/gstack
+    Copyright (c) 2026 Garry Tan
+    Licensed under the MIT License
+
+gstack is the origin of this project's core idea and of a substantial part of
+its workflow skills: the persistent browser daemon, the skill-per-directory
+layout, the multi-host distribution model, and the review/ship/QA workflow
+family. Where Toolbay Stack forks a gstack skill, the derived file carries an
+attribution header naming gstack and Garry Tan, and the MIT notice above is
+reproduced in full in the LICENSE file at the root of this repository.
+
+Toolbay Stack is NOT affiliated with, endorsed by, or supported by Garry Tan.
+Please do not report Toolbay Stack issues to the gstack project.
+
+If you want the original, use the original. It is excellent and it is upstream:
+
+    https://github.com/garrytan/gstack
+
+
+New work in this repository
+---------------------------
+
+Everything under the following paths is original to Toolbay Stack and is
+Copyright (c) 2026 Toolbay, MIT licensed:
+
+    bin/                 the installer CLI
+    src/cursor/          the Cursor integration and hook adapter
+    tools/               build tooling
+    skills/toolbay/      the marketplace connector skill
+    skills/router/       the skill-routing layer
+    skills/modes/        the stance layer (modes)
+    skills/suggest/      the project-state suggestion engine
+    skills/memory/       the correction-recall layer
+    skills/video/        the prompt-to-video layer
+    skills/backtest/     the setup-backtest harness
+    docs/
+
+skills/modes/, skills/suggest/, skills/memory/ and skills/backtest/ have no
+counterpart in gstack. They ship inside gstack's skill-per-directory layout and
+they change how the forked skills are reached and how they behave once reached,
+but no code or contract in any of the four is derived from gstack.
+skills/suggest/ names commands by importing skills/router/, and never by a table
+of its own.
+
+skills/backtest/ measures a user's own agent configuration against seeded
+defects. It reads and executes whatever hooks that user has configured, which on
+some machines will be gstack's; it never writes inside gstack's skill directory
+and contains no gstack code.
+
+src/cursor/ installs this stack into Cursor (https://cursor.com), a separate
+product by Anysphere which is NOT bundled, vendored or redistributed here: the
+installer locates an installation on the machine and refuses when there is none.
+gstack has no Cursor integration, so nothing in it is derived from gstack. The
+Cursor hook format it writes is Cursor's own, documented by Anysphere.
+
+skills/video/ is original work with no counterpart in gstack. It drives
+Diffusion Studio's `dapi` command line tool
+(https://github.com/diffusionstudio/editor, MIT), which is a separate project
+and is NOT bundled, vendored or redistributed here: the skill locates an
+installation on the machine and refuses when there is none. No Diffusion Studio
+code is included in this repository.
+
+skills/modes/ is the one that reaches furthest into the forked skills: a mode is
+a stance that a forked SKILL.md reads and follows at the top of its run, so the
+same gstack-derived workflow produces a different amount of work in a different
+mode. The stance layer is ours. Every workflow it modulates is still credited to
+gstack in that skill's own header.
+
+
+Files derived from gstack
+-------------------------
+
+EVERY skill directory in this repository except the five named as new work above
+implements a user-facing contract taken from gstack. The code is a rewrite rather
+than a copy, but the skill names, the command names, the option semantics, and
+the behaviour a user relies on are Garry Tan's design. Each such file carries an
+attribution header naming gstack, Garry Tan, the MIT license, and the upstream
+URL. That per-file header is the authoritative record. The list below is the
+complete set as of this version, 53 skill directories, and it is maintained to
+match the headers on disk rather than to limit what is credited.
+
+    src/guard/tb-guard.mjs          the careful + freeze safety engine
+
+    skills/autoplan/                skills/ios-sync/
+    skills/benchmark/               skills/land-and-deploy/
+    skills/benchmark-models/        skills/landing-report/
+    skills/browse/                  skills/learn/
+    skills/canary/                  skills/make-pdf/
+    skills/careful/                 skills/office-hours/
+    skills/codex/                   skills/open-gstack-browser/
+    skills/context-restore/         skills/pair-agent/
+    skills/context-save/            skills/plan-ceo-review/
+    skills/cso/                     skills/plan-design-review/
+    skills/design-consultation/     skills/plan-devex-review/
+    skills/design-html/             skills/plan-eng-review/
+    skills/design-review/           skills/plan-tune/
+    skills/design-shotgun/          skills/qa/
+    skills/devex-review/            skills/qa-only/
+    skills/diagram/                 skills/retro/
+    skills/document-generate/       skills/review/
+    skills/document-release/        skills/scrape/
+    skills/freeze/                  skills/setup-browser-cookies/
+    skills/gstack-upgrade/          skills/setup-deploy/
+    skills/guard/                   skills/setup-gbrain/
+    skills/health/                  skills/ship/
+    skills/investigate/             skills/skillify/
+    skills/ios-clean/               skills/spec/
+    skills/ios-design-review/       skills/sync-gbrain/
+    skills/ios-fix/                 skills/unfreeze/
+    skills/ios-qa/
+
+skills/router/ is original work, but the idea of shipping a router skill inside
+the suite is gstack's, and its SKILL.md says so.
+
+
+Third-party components
+----------------------
+
+Toolbay Stack's installer CLI is derived from the `toolbay` npm CLI
+(packages/toolbay-cli in the Toolbay monorepo), Copyright (c) 2026 Toolbay,
+MIT licensed.

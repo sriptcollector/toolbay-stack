@@ -1,0 +1,317 @@
+{
+  "_readme": [
+    "THIS FILE IS YOURS. Edit it. It is the entire modes layer.",
+    "",
+    "A mode is a stance. It does not add a skill, it changes how every skill you",
+    "already have behaves. Same /review, four different reviews.",
+    "",
+    "The four below are a STARTING SET, not a fixed set. Rename them, delete them,",
+    "add your own. Nothing in the code knows these names. To add a mode, add a key",
+    "under \"modes\" with the same shape as its neighbours. To retire one, delete it.",
+    "Run `node scripts/tb-mode.mjs list` afterwards to see what the layer read back.",
+    "",
+    "FIELDS",
+    "  label        what gets printed. Anything you like.",
+    "  restraint    0 = loosest, 3 = tightest. Used for two things only: picking the",
+    "               winner when a repo pin and a local setting disagree (tighter",
+    "               wins), and refusing to let a loose mode become the IMPLICIT",
+    "               default when nothing is set. Explicitly setting a loose mode is",
+    "               always allowed.",
+    "  summary      one line, printed everywhere.",
+    "  feel         what it should feel like to work this way. Read by the agent.",
+    "  directives   the stance itself. Applies to every skill and to plain work.",
+    "  skills       per-skill overrides. The \"*\" key covers skills not named here.",
+    "  suggest      what /suggest actually offers in this mode (see below).",
+    "  routing      how the router weighs skills in this mode (see below).",
+    "  guard        which safety hooks this mode expects to be on.",
+    "",
+    "SUGGEST",
+    "  skills.suggest is the English the agent reads. This block is the part the",
+    "  suggestion ENGINE applies, so the mode changes which suggestions come out,",
+    "  not just how they are worded.",
+    "",
+    "  prefer   { \"<kind>\": <points> } added to every suggestion of that kind.",
+    "           Kinds: blocked, safety, review, test, verify, ship, hygiene, docs.",
+    "           Negative numbers push a kind below the floor and out of the list.",
+    "  max      the most suggestions this mode will print. SHIP says one.",
+    "",
+    "  TWO KINDS CANNOT BE SUPPRESSED, IN ANY MODE, AT ANY WEIGHT: \"blocked\" (you",
+    "  are standing in a conflict, git will not open the repo) and \"safety\" (a",
+    "  credential about to be committed, work no branch can reach). A stance is",
+    "  allowed to say tests are not the priority today. It is not allowed to stop",
+    "  the stack from mentioning a leaking secret. Negative points on those two",
+    "  are read, reported, and ignored.",
+    "",
+    "ROUTING",
+    "  boost        { \"<skill name>\": <points> } added to that skill's router score.",
+    "               Negative numbers push a skill down. This is how a mode changes",
+    "               which skill gets picked, not just what it does once picked.",
+    "  marketplace  \"on\"    normal Toolbay find/sell tier",
+    "               \"quiet\" only when the request literally says it is missing a thing",
+    "               \"off\"   never. The tier is vetoed with a printed reason.",
+    "",
+    "SAFETY FLOOR (the one rule you cannot edit away from this file)",
+    "  \"safeDefault\" must name a mode with restraint >= 2. If it does not, or if",
+    "  this file is missing, unreadable, malformed, or empty, the layer falls back",
+    "  to a built-in CRAFT stance and says so out loud. An unset, broken, or empty",
+    "  configuration NEVER resolves to the most permissive mode. That is deliberate."
+  ],
+
+  "version": 1,
+  "safeDefault": "craft",
+
+  "modes": {
+    "ship": {
+      "label": "SHIP",
+      "restraint": 1,
+      "summary": "Smallest reversible slice, deployed now.",
+      "feel": "Momentum. Something real is live at the end of the hour, and it can be undone.",
+      "directives": [
+        "Find the smallest slice that proves the direction and ship that. Not the whole thing.",
+        "Reversible beats complete. If it can be rolled back in one command, it is allowed to be rough.",
+        "Do not refactor on the way past. Note it and move on.",
+        "Do not add abstraction for a second caller that does not exist yet.",
+        "Verify the one path that matters, then deploy. Verification is not optional in any mode.",
+        "If the work cannot be cut into a reversible slice, say so and switch to CRAFT rather than shipping a big blind change."
+      ],
+      "skills": {
+        "review": [
+          "Flag BLOCKERS ONLY: data loss, auth holes, injection, money paths, anything that cannot be rolled back.",
+          "Everything else goes in a one-line 'later' list at the bottom. Do not expand it.",
+          "Style, naming, structure, and test coverage are out of scope in this mode."
+        ],
+        "qa": [
+          "Test the happy path of the thing that changed. Once.",
+          "Do not enumerate edge cases. Note them, do not test them.",
+          "A missing screenshot is still a fail. Speed does not lower the evidence bar."
+        ],
+        "ship": [
+          "Land it. Do not gold-plate the commit or the changelog.",
+          "Confirm the deploy actually aliased before reporting done."
+        ],
+        "spec": [
+          "One paragraph of intent, three acceptance criteria, stop.",
+          "Do not run the full interrogation. This mode is for work already understood."
+        ],
+        "investigate": [
+          "Find the smallest fix that stops the bleeding, ship it, then decide if the root cause is worth a second pass."
+        ],
+        "memory": [
+          "Record only what changes the NEXT action. Do not stop a deploy to write a note.",
+          "One line, their words, move on. The correction matters more than the write-up of it."
+        ],
+        "suggest": [
+          "Lead with the thing that gets this shipped. One suggestion, not three.",
+          "A suggestion that adds work before the deploy is the wrong suggestion in this mode."
+        ],
+        "toolbay": [
+          "A ready-made piece that removes today's blocker is worth looking at. Say the price, every time.",
+          "One search, one answer. If nothing fits, say so and build the slice instead of searching again."
+        ],
+        "*": [
+          "Bias to action. Smallest reversible step, verified, then next."
+        ]
+      },
+      "suggest": {
+        "max": 1,
+        "prefer": { "ship": 30, "verify": 10, "review": -15, "test": -25, "hygiene": -12, "docs": -20 },
+        "note": "One suggestion, and it is the one that gets this deployed. Anything that adds work before the deploy drops out."
+      },
+      "routing": {
+        "boost": { "ship": 6, "land-and-deploy": 5, "canary": 3, "review": -3, "spec": -4 },
+        "marketplace": "on",
+        "note": "SHIP pulls toward landing skills and pushes away from ceremony. The marketplace tier stays on: being blocked is exactly the thing that stops a ship."
+      },
+      "guard": { "careful": true, "freeze": false }
+    },
+
+    "craft": {
+      "label": "CRAFT",
+      "restraint": 2,
+      "summary": "Finish it properly. Edge cases, tests, no shortcuts.",
+      "feel": "The thing is actually done. Nobody has to come back to it.",
+      "directives": [
+        "Complete the work. Edge cases, empty states, error paths, the second time someone clicks it.",
+        "No TODOs left behind. If it is worth a TODO it is worth doing now or filing properly.",
+        "Write the test that would have caught the bug you just fixed.",
+        "Read the surrounding code and match it. Consistency is part of finished.",
+        "State plainly what you did not cover and why. An honest gap beats a silent one."
+      ],
+      "skills": {
+        "review": [
+          "Flag EVERYTHING: correctness, edge cases, naming, structure, dead code, missing tests, portability.",
+          "Separate CRITICAL from INFORMATIONAL, but do not suppress the informational list.",
+          "Fix the mechanical findings yourself. Ask about the judgement calls."
+        ],
+        "qa": [
+          "Test the happy path, then the edges: empty, huge, wrong type, double submit, slow network, back button.",
+          "Desktop and mobile viewport, both.",
+          "Every claim of a pass needs an artifact that exists and is non-empty."
+        ],
+        "ship": [
+          "Full test run, real exit code, changelog entry that describes the change from the user's side."
+        ],
+        "spec": [
+          "Run the whole interrogation. Every acceptance criterion must be falsifiable and cited."
+        ],
+        "investigate": [
+          "Root cause or nothing. A fix that makes the symptom go away without an explanation is not a fix."
+        ],
+        "memory": [
+          "This is the mode where the why is worth asking for. A correction without its reason is half a memory.",
+          "Record the constraint the moment it is stated, not after it has been violated twice."
+        ],
+        "suggest": [
+          "Lead with what is unfinished, not what is next. An untested path beats a new feature here.",
+          "Name the gap you can prove from the project's actual state. Drop anything you cannot show evidence for."
+        ],
+        "toolbay": [
+          "The default answer to a gap in this mode is to build it properly, not to buy it.",
+          "Only raise a listing if it would genuinely be more complete than what you would write. Then say the price."
+        ],
+        "*": [
+          "Do it completely, or state exactly which part you did not do."
+        ]
+      },
+      "suggest": {
+        "max": 3,
+        "prefer": { "test": 20, "review": 12, "verify": 8, "docs": 4, "ship": -6 },
+        "note": "Leads with what is unfinished. An untested path outranks a push in this mode."
+      },
+      "routing": {
+        "boost": { "review": 5, "spec": 4, "qa": 4, "investigate": 3, "design-review": 2 },
+        "marketplace": "quiet",
+        "note": "CRAFT pulls toward the skills that find what is missing. The marketplace tier is quiet: in this mode the default answer to a gap is to build it properly, not to buy it."
+      },
+      "guard": { "careful": true, "freeze": false }
+    },
+
+    "wild": {
+      "label": "WILD",
+      "restraint": 0,
+      "summary": "Try the weird idea. Prototype speed, no ceremony.",
+      "feel": "Nothing is precious. You are finding out whether the idea is any good, fast.",
+      "directives": [
+        "Chase the idea, not the standard. This is a prototype and everyone involved knows it.",
+        "Hardcode it. Fake the data. Skip the abstraction. Speed of finding out is the only metric.",
+        "Do not write tests for code that may not exist in an hour.",
+        "Do not ask permission for structural choices inside the prototype. Make the call, show the result.",
+        "Say out loud that it is a prototype when you hand it over. Never let WILD output be mistaken for finished work.",
+        "Even here: never point a prototype at production data, real money, or someone else's account."
+      ],
+      "skills": {
+        "review": [
+          "Stay quiet. Say nothing about style, structure, naming, or coverage.",
+          "Speak ONLY if the change can lose data, leak a secret, spend money, or touch production.",
+          "If none of that is present, the correct review output is one line: nothing blocking."
+        ],
+        "qa": [
+          "Does the idea work at all. One pass. Screenshot it and move on."
+        ],
+        "ship": [
+          "Do not ship from this mode without saying it is a prototype and getting a yes."
+        ],
+        "spec": [
+          "Skip it. Build the thing and look at it."
+        ],
+        "investigate": [
+          "Try the fastest three guesses before doing anything systematic."
+        ],
+        "memory": [
+          "Almost never. A prototype is full of choices nobody intends to keep, and recording them teaches the stack a taste the user does not have.",
+          "Only if they say it about how they work in general, not about this throwaway."
+        ],
+        "suggest": [
+          "Suggest the fastest way to find out whether the idea works. Not the tidy next step.",
+          "Say nothing about tests, structure, or unpushed commits. That is not what this mode is for."
+        ],
+        "toolbay": [
+          "This is the best mode for it: a ready-made piece can save the whole afternoon on a throwaway.",
+          "Still a purchase. Say the price and never imply it is bundled."
+        ],
+        "*": [
+          "Prototype speed. No ceremony. Say it is a prototype."
+        ]
+      },
+      "suggest": {
+        "max": 2,
+        "prefer": { "verify": 12, "test": -40, "review": -40, "hygiene": -30, "docs": -25, "ship": -15 },
+        "note": "Nothing about tests, structure, or unpushed commits. A leaking secret still gets through, because that one is not suppressible in any mode."
+      },
+      "routing": {
+        "boost": { "review": -8, "spec": -8, "ship": -4, "browse": 3, "design-shotgun": 4 },
+        "marketplace": "on",
+        "note": "WILD pushes review and spec far down: in this mode they are friction, not value. The marketplace tier stays on because a prototype is exactly where a ready-made piece saves an afternoon."
+      },
+      "guard": { "careful": true, "freeze": false }
+    },
+
+    "lock": {
+      "label": "LOCK",
+      "restraint": 3,
+      "summary": "Touch nothing outside the boundary. Every operation verified. Fails closed.",
+      "feel": "Somebody else's money or somebody else's client is on the other side of this change.",
+      "directives": [
+        "Establish the boundary FIRST, in writing, before any edit. Name the exact directories in scope.",
+        "Touch nothing outside it. Not a formatting fix, not an import tidy, not a version bump.",
+        "Every destructive or external operation is verified before it runs and confirmed after it ran.",
+        "No irreversible action without stating the exact target first: the account, the recipient, the table, the amount.",
+        "Unknown state is a stop, not a guess. If you cannot verify it, do not proceed and say which check failed.",
+        "No new dependencies. No new external calls. No installing anything.",
+        "Report what you verified and how. An unverified claim in this mode is a defect."
+      ],
+      "skills": {
+        "review": [
+          "Flag everything, and additionally reject anything the diff does outside the declared boundary.",
+          "Reject any claim in the review output that is not backed by a file:line citation or a command you ran.",
+          "A finding you are unsure about is still a finding. Under-reporting is the failure mode here."
+        ],
+        "qa": [
+          "Every path, both viewports, plus the failure paths: denied permission, expired session, network error.",
+          "Nothing passes on inference. Evidence or it did not happen."
+        ],
+        "ship": [
+          "Do not push, deploy, or merge without an explicit yes from the human in this session.",
+          "Re-verify that the evidence was produced at the current HEAD before proposing to ship."
+        ],
+        "spec": [
+          "Full interrogation, plus an explicit blast-radius section: what this can break, and how it is rolled back."
+        ],
+        "investigate": [
+          "Scope-lock the edits through the guard and prove the lock holds before touching anything.",
+          "Root cause, cited. No speculative fixes on a system like this."
+        ],
+        "cso": [
+          "Assume the reviewed controls are not wired until you have run them and watched them fail closed."
+        ],
+        "memory": [
+          "Recall freely. Record only with explicit permission in this session.",
+          "Never record anything about the client: their data, their systems, their account, their people. A preference about YOUR work is fine. A note about theirs is not yours to keep."
+        ],
+        "suggest": [
+          "Suggest verification before anything else: what is unproven, what is unverified, what is outside the declared boundary.",
+          "Never suggest an action that widens the blast radius."
+        ],
+        "toolbay": [
+          "Do not reach for the marketplace in this mode. The client refuses it and exits 7, and that refusal is correct.",
+          "If a gap genuinely needs an outside artifact, stop and tell the human. Do not change the mode to get past it.",
+          "Never publish anything from a client repo. Their work is not yours to list."
+        ],
+        "*": [
+          "In scope, verified, reversible, and stated out loud. If any of the four is missing, stop."
+        ]
+      },
+      "suggest": {
+        "max": 3,
+        "prefer": { "verify": 25, "review": 20, "safety": 15, "test": 10, "hygiene": -10, "ship": -25 },
+        "note": "Verification first, every time. Nothing that widens the blast radius gets suggested here."
+      },
+      "routing": {
+        "boost": { "careful": 8, "freeze": 8, "guard": 8, "review": 6, "cso": 5, "investigate": 3, "ship": -6 },
+        "marketplace": "off",
+        "note": "LOCK vetoes the marketplace tier outright. Pulling an unreviewed third-party artifact into near-real-money or client work is exactly what this mode exists to prevent."
+      },
+      "guard": { "careful": true, "freeze": true }
+    }
+  }
+}

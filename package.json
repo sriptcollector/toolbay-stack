@@ -1,0 +1,53 @@
+{
+  "name": "toolbay-stack",
+  "version": "0.2.0",
+  "description": "An agent stack for Claude Code that can buy the skill it is missing and sell the thing it just built. Built on gstack by Garry Tan (MIT).",
+  "keywords": [
+    "claude-code",
+    "claude",
+    "skills",
+    "agent-skills",
+    "mcp",
+    "toolbay",
+    "gstack",
+    "developer-tools"
+  ],
+  "homepage": "https://toolbay.ai",
+  "license": "MIT",
+  "author": "Toolbay",
+  "contributors": [
+    "Garry Tan (gstack, https://github.com/garrytan/gstack)"
+  ],
+  "type": "module",
+  "bin": {
+    "toolbay-stack": "bin/toolbay-stack.mjs"
+  },
+  "files": [
+    "bin",
+    "skills",
+    "src",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "!skills/**/.toolbay",
+    "!skills/**/.toolbay/**"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "check": "node tools/run-tests.mjs --syntax",
+    "sync": "node tools/sync-guard.mjs",
+    "catalog": "node skills/router/scripts/route.mjs catalog --bundled",
+    "mode": "node skills/modes/scripts/tb-mode.mjs show",
+    "engines": "node tools/run-tests.mjs --list",
+    "backtest": "node tools/backtest.mjs",
+    "backtest:mine": "node skills/backtest/scripts/tb-backtest.mjs",
+    "cursor": "node src/cursor/tb-cursor.mjs",
+    "cursor:capabilities": "node src/cursor/tb-cursor.mjs capabilities",
+    "test": "node tools/run-tests.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

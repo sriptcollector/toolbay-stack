@@ -1,0 +1,737 @@
+{
+  "_comment": [
+    "The routing VOCABULARY for Toolbay Stack. Toolbay Stack, Copyright (c) 2026 Toolbay. MIT. Original work.",
+    "",
+    "This file does not name a single skill, and that is the whole point. gstack routes",
+    "with a hand-written table of the form 'User asks to ship, deploy, push -> invoke /ship'.",
+    "That table names skills, so renaming or removing a skill leaves a stale rule behind, and",
+    "in gstack 1.60.1.0 it has already drifted: the same file carries two copies of the table,",
+    "one with 13 rules and one with 35, and they disagree.",
+    "",
+    "Here the mapping is request-phrase -> CAPABILITY, and skills declare which capabilities",
+    "they provide in their own frontmatter. The skill side of the mapping is read off disk at",
+    "route time, so a skill that is gone cannot be routed to and a skill that is added needs no",
+    "edit here. This file only goes stale if English does."
+  ],
+
+  "capabilities": {
+    "work-mode": {
+      "label": "set or read the stance the work is being done in",
+      "_why": "A stance is not a task, so it needs its own token. 'what mode am I in' and 'be careful with this' are different requests: one reads the stance layer, the other asks for a safety hook.",
+      "match": ["mode", "what mode", "set mode", "switch mode", "change mode", "ship mode", "craft mode", "wild mode", "lock mode", "stance", "how careful", "prototype mode", "modes"]
+    },
+    "next-step-suggestion": {
+      "label": "read the project as it is now and say what is worth doing next",
+      "_why": "Distinct from skill-routing, which answers 'which skill handles THIS request'. Here there is no request yet: the input is the repository, and the output is what is worth doing at all, including 'nothing'. It needs its own token because the two questions have opposite shapes, and because the honest answer is often that there is no answer, which no other capability here is allowed to give.",
+      "_matchNote": "\"where did i leave off\" is deliberately NOT here. It is a request to reload saved state, not a request for something new to do, and while both tokens carried it the two skills sat one point apart. It lives in context-restore-verification only. Verified with route.mjs explain before and after.",
+      "match": ["what should i do next", "what do i do next", "what next", "what now", "whats next", "what's next", "where do i start", "where should i start", "what should i work on", "what needs doing", "anything i should do", "any suggestions", "what do you suggest", "suggest something", "what would you do next", "pick something up", "catch me up", "state of the project"]
+    },
+    "user-memory": {
+      "label": "keep, recall, or delete what this person has told the agent about how they work",
+      "_why": "Separate from every other token here because the input is not a task at all, it is the user pushing back on one. 'no, not like that' and 'I already told you' are the two highest-signal sentences a session contains, and they route nowhere in a stack that only maps requests to work. This token also has to cover the opposite direction, 'what do you have on me' and 'forget that', because a memory you cannot interrogate or delete is one people are right to refuse.",
+      "match": ["no, not like that", "not like that", "i already told you", "i just told you", "i said", "stop doing that", "why do you keep", "every time", "remember that", "remember this", "keep that in mind", "for future reference", "from now on", "what do you remember", "what do you know about me", "what do you have on me", "forget that", "forget what i said", "delete what you know", "my preferences", "memory"]
+    },
+    "browser-automation": {
+      "label": "drive a real browser",
+      "match": ["browser", "headless", "chromium", "playwright", "puppeteer", "screenshot", "open the site", "load the page", "click through", "in the browser"]
+    },
+    "qa-testing": {
+      "label": "test a running application",
+      "_matchNote": "\"check the deploy\" and \"verify the deploy\" were here and are not any more. /qa fixes what it finds and /land-and-deploy runs `gh pr merge`, so those two read-only questions were routing a look at production to a skill that writes to it. They belong to deploy-verification, which is owned by /canary. Verified with route.mjs explain before and after.",
+      "match": ["qa", "qa test", "test the site", "test the app", "test this site", "find bugs", "does this work", "smoke test", "regression pass", "click through the app", "end to end", "e2e"]
+    },
+    "qa-report-only": {
+      "label": "audit an application without changing it",
+      "_why": "A separate token from qa-testing on purpose. 'QA it' and 'QA it but do not touch anything' are different jobs with different blast radii, and folding them together is how a router answers 'audit the client's app, read only' with the skill that commits fixes.",
+      "match": ["report only", "just report", "report the bugs", "bug report", "don't fix", "do not fix", "dont fix", "without fixing", "no changes", "read only", "read-only", "audit the app", "audit the site", "client app", "just check for bugs", "just look", "look but"]
+    },
+    "debugging": {
+      "label": "find the root cause of a defect",
+      "match": ["bug", "error", "stack trace", "traceback", "exception", "broken", "not working", "doesn't work", "does not work", "why is", "why does", "failing", "crash", "segfault", "hangs", "times out", "flaky", "regression", "500", "undefined is not", "root cause", "investigate", "debug", "throwing", "worked yesterday"]
+    },
+    "code-review": {
+      "label": "review a change before it lands",
+      "match": ["review", "look at my changes", "review my changes", "check the diff", "review the diff", "pull request", "pre-landing", "before landing", "code review", "before i merge", "critique this code"]
+    },
+    "shipping-deploy": {
+      "label": "land and deploy a change",
+      "match": ["ship", "deploy", "push to prod", "push to main", "release", "create a pr", "open a pr", "land this", "land and deploy", "merge and push", "send it", "cut a release", "bump the version", "get it deployed"]
+    },
+    "documentation": {
+      "label": "write or update documentation",
+      "match": ["docs", "documentation", "readme", "changelog", "document this", "write up how"]
+    },
+    "design-review": {
+      "label": "audit visual quality",
+      "match": ["looks off", "visual polish", "design audit", "ui feels", "spacing", "typography", "looks bad", "looks generic"]
+    },
+    "design-system": {
+      "label": "define a design system or visual identity",
+      "match": ["design system", "brand", "visual identity", "how should this look", "color palette", "font pairing"]
+    },
+    "planning-review": {
+      "label": "review a plan before building",
+      "match": ["review the plan", "is this plan", "architecture review", "does this design make sense", "think bigger", "what should we build", "scope"]
+    },
+    "spec-authoring": {
+      "label": "turn intent into an executable spec",
+      "match": ["spec", "spec this out", "write a ticket", "write up a ticket", "file an issue", "turn this into an issue", "backlog", "backlog item", "requirements", "acceptance criteria", "definition of done"]
+    },
+    "security-audit": {
+      "label": "audit security posture",
+      "match": ["security", "vulnerab", "owasp", "is this secure", "secrets", "credential leak", "cve", "supply chain"]
+    },
+    "security-control-verification": {
+      "label": "prove a security control was actually checked",
+      "_why": "Separate from security-audit because 'did that check even run' is a different request from 'audit me'. An audit that could not reach a control must report it as unverified, and asking for that is asking for a specific behaviour, not a general scan.",
+      "match": ["did the scan actually", "was it actually checked", "unverified", "fail closed", "fails open", "prove the audit", "verify the finding", "false negative", "did we miss", "was that really checked", "security verdict"]
+    },
+    "skill-supply-chain-audit": {
+      "label": "scan installed agent skills for malicious instructions",
+      "_why": "SKILL.md is executable prompt code, not documentation, so 'is this skill safe to install' is its own capability and not a subset of code review.",
+      "match": ["is this skill safe", "scan my skills", "malicious skill", "prompt injection", "skill supply chain", "untrusted skill", "audit the skills", "is this plugin safe", "exfiltrat"]
+    },
+    "performance-benchmark": {
+      "label": "measure performance",
+      "match": ["performance", "slow", "page speed", "benchmark", "latency", "core web vitals", "profil"]
+    },
+    "destructive-command-guard": {
+      "label": "warn before destructive commands",
+      "match": ["be careful", "careful mode", "safety mode", "prod mode", "warn me before", "destructive", "don't delete", "do not delete"]
+    },
+    "edit-boundary-guard": {
+      "label": "restrict which files can be edited",
+      "match": ["freeze", "restrict edits", "only edit", "lock editing", "lock down edits", "don't touch", "do not touch", "stay in this folder", "scope the changes"]
+    },
+    "edit-boundary-release": {
+      "label": "lift an edit restriction",
+      "_why": "The opposite of edit-boundary-guard, and a separate token because it is a separate operation. Folding both into one capability is how a router answers 'unfreeze' with /freeze.",
+      "match": ["unfreeze", "unlock edits", "remove the freeze", "remove freeze", "allow all edits", "lift the freeze", "remove edit restrictions", "widen the scope"]
+    },
+    "safety-hook-verification": {
+      "label": "prove a safety hook is really active",
+      "match": ["is the guard", "is the hook", "actually active", "prove it", "verify the hook", "selftest", "self test", "fail closed", "fails open"]
+    },
+    "context-write": {
+      "label": "write the working context of this session down so a later one can read it",
+      "_why": "Split out of a single context-checkpoint token, which both /context-save and /context-restore declared. One token for both directions meant the router scored them identically on every phrase and the only thing separating them was one verbatim trigger string, so a request that missed that string was a coin flip between the skill that writes a file and the skill that overwrites the model's beliefs from one. Save and restore are opposite operations with opposite failure modes, so they get opposite tokens.",
+      "match": ["save my work", "save progress", "save the context", "save my context", "save state", "checkpoint", "make a checkpoint", "note where i am", "before we lose context", "write down where we are"]
+    },
+    "context-read": {
+      "label": "load a working context that was written down earlier",
+      "_why": "The read half of the pair that used to share one token with the write half. Kept distinct from context-restore-verification, which asks whether a context already loaded still describes reality: this one is the request to load it at all.",
+      "match": ["where was i", "resume", "resume work", "restore context", "restore my context", "reload the context", "pick up where", "load my last context"]
+    },
+    "ios-development": {
+      "label": "build, run, or test an iOS app",
+      "match": ["ios", "iphone", "ipad", "xcode", "swiftui", "simulator", "testflight", "app store", "xcodebuild", "simctl"]
+    },
+    "pdf-generation": {
+      "label": "produce a PDF",
+      "match": ["pdf", "print to", "publication quality", "typeset"]
+    },
+    "diagramming": {
+      "label": "draw a diagram",
+      "match": ["diagram", "flowchart", "architecture drawing", "mermaid", "excalidraw", "sequence diagram"]
+    },
+    "scraping": {
+      "label": "pull structured data off a web page",
+      "match": ["scrape", "extract data from", "pull data from", "crawl"]
+    },
+    "retrospective": {
+      "label": "look back at recent work",
+      "match": ["retro", "retrospective", "what did we ship", "how'd we do", "this week we"]
+    },
+    "code-health": {
+      "label": "assess overall code quality",
+      "match": ["health check", "code quality", "tech debt", "how healthy", "dashboard of"]
+    },
+    "marketplace-search": {
+      "label": "find a packaged capability someone already built",
+      "match": ["is there a tool", "is there a skill", "is there a library", "does one exist", "anything out there", "off the shelf", "already built", "buy one", "marketplace", "toolbay"]
+    },
+    "marketplace-publish": {
+      "label": "list something for sale",
+      "match": ["sell this", "list this", "publish this", "what could this sell for", "monetize", "put it on the marketplace", "list it on toolbay"]
+    },
+    "skill-routing": {
+      "label": "decide which skill handles a request",
+      "match": ["which skill", "what should i use", "route this", "who handles"]
+    },
+    "visual-evidence-ledger": {
+      "label": "back a visual claim with a screenshot that opens",
+      "_why": "Separate from design-review because the request is about proof, not taste. 'Show me' and 'prove the fix worked' should reach the skill that refuses a 0-byte or blank screenshot, not a skill that will describe the page again.",
+      "match": ["screenshot", "before and after", "show me the difference", "prove the fix", "did it actually change", "visual proof", "evidence for that", "back it up with"]
+    },
+    "contrast-audit": {
+      "label": "measure colour contrast against WCAG",
+      "_why": "A ratio is arithmetic on two colours. Routing it here means the answer is computed, not estimated off a screenshot.",
+      "match": ["contrast", "contrast ratio", "wcag", "aa compliance", "aaa compliance", "hard to read", "text is too light", "grey on white", "legibility", "a11y color", "accessible color"]
+    },
+    "page-evidence": {
+      "label": "prove one page actually loaded, with an artifact",
+      "_why": "Distinct from browser-automation (drive a browser through a flow) and from qa-testing (walk a whole app). This is the narrow ask: load one URL and come back with a verdict backed by a file that opens. It needs its own token because the honest answer is computed from output that exists, and a page that never loaded has to fail rather than read clean.",
+      "match": ["did it load", "did the page load", "is the site up", "is it live", "verify the page", "prove it loaded", "check it loads", "is the deploy live", "confirm the deploy", "load the page", "open the site", "pull up the page"]
+    },
+    "deploy-verification": {
+      "label": "prove the deploy actually landed, not just that a URL answers",
+      "_why": "Distinct from shipping-deploy (do the deploy) and from page-evidence (prove one page loaded). This is the commit-level question: is the URL serving THIS merge commit. It needs its own token because the failure it catches looks healthy from the outside. A paused Vercel account keeps serving the previous build at 200, fast, with a clean console, so every liveness check passes while production is a build behind. Routing that to a page-load check would answer the wrong question convincingly.",
+      "_matchNote": "The four merge-shaped phrases that used to live here (\"land the pr\", \"merge and deploy\", \"revert the merge\", \"roll back the deploy\") moved to merge-landing-proof. They are requests to DO the landing, and leaving them on a verification token had two skills tied on every deploy question. This token is now owned by /canary alone. Verified with route.mjs explain before and after.",
+      "match": ["did it alias", "aliased", "did it actually deploy", "verify the deploy", "check the deploy", "deploy verification", "actually live", "still the old version", "still serving the old", "a build behind", "green but dead", "deployment_disabled", "deployment disabled", "402", "payment required", "did it actually ship"]
+    },
+    "merge-landing-proof": {
+      "label": "merge the change and prove the production URL is serving that exact merge commit",
+      "_why": "The narrow half of shipping that deploy-verification kept swallowing. Distinct from shipping-deploy, which is the whole errand of getting a change out, and from deploy-verification, which observes production without touching it. The defining fact here is that the merge commit is the reference: the question is not 'is the site healthy' but 'is the SHA that this merge produced the SHA being served', and the honest failures are merge-shaped — a merge that never happened, a build that exited 0 without aliasing, a revert that has to go back through the same gate. It needs its own token because the request is an instruction with a write in it, so it must never be reachable from a read-only question about production.",
+      "match": ["land the pr", "land this pr", "land and deploy", "merge and deploy", "merge the pr", "merge it and ship", "revert the merge", "roll back the merge", "roll back the deploy", "undo the deploy"]
+    },
+    "design-exploration": {
+      "label": "generate several design directions and choose between them by eye",
+      "_why": "Distinct from design-system (define the rules once) and design-review (audit one existing screen). This is the fork in the road: several candidates exist and a human picks one. It needs its own token because the deliverable is a comparison, and a comparison built from variants that failed to generate, or that are near-duplicates of each other, is a choice the user never actually got to make.",
+      "match": ["design options", "design variants", "design shotgun", "show me options", "show me a few", "explore designs", "visual brainstorm", "mockups", "mock ups", "a few directions", "some options", "don't like how this looks", "do not like how this looks", "what could this look like", "side by side", "comparison board", "pick a direction", "which one looks better"]
+    },
+    "plan-review-pipeline": {
+      "label": "run every plan review end to end with the decisions made for you",
+      "_why": "Distinct from planning-review, which is one reviewer looking at a plan. This is the gauntlet plus the authority to answer its questions: the user is handing over the intermediate decisions, not just asking for an opinion. It needs its own token because the two requests want different skills and 'don't ask me' is the part that decides which.",
+      "match": ["autoplan", "auto plan", "run all the reviews", "run every review", "all four reviews", "full review pipeline", "review pipeline", "automatic review", "review it automatically", "review this plan automatically", "make the decisions for me", "don't ask me", "do not ask me", "without asking me"]
+    },
+    "review-evidence-gate": {
+      "label": "prove a review actually produced the outputs it claims",
+      "_why": "A review that reports itself complete and a review that is complete are different states, and only one of them is checkable. Separate from code-review and planning-review because the request is not 'review this', it is 'was that review real'. The failure it catches reads as success: a summary, a consensus table of placeholder dashes, and a passing log entry, with none of the required artifacts on disk.",
+      "match": ["did the review actually", "prove the review", "was it really reviewed", "review evidence", "verify the review", "check the plan is complete", "missing outputs", "is this plan finished", "did it actually run all"]
+    },
+    "context-save-verification": {
+      "label": "prove a saved working context actually landed on disk and can still be read",
+      "_why": "Separate from context-write (do the save) because the request is about the artifact, not the act. 'Did that save actually work' and 'where is it' are asked precisely when the drawer looks empty, and the failure they catch reads as success: on Windows gstack's save resolves its own MSYS state path to C:\\c\\Users\\..., its list step runs find.exe and reports 'no saved contexts yet' next to files that exist, and the banner prints either way. Routing that here reaches the skill that re-reads the file and checksums it rather than one that will describe the save again.",
+      "match": ["did it save", "did that save", "was it saved", "did the save work", "where did it save", "where is the checkpoint", "where are my saves", "is the context saved", "verify the save", "check the save", "lost my context", "my saves are gone", "no saved contexts", "did the checkpoint land", "prove it saved"]
+    },
+    "skill-codification": {
+      "label": "turn a flow that worked once into a permanent, tested artifact on disk",
+      "_why": "Distinct from spec-authoring (write down what to build) and from scraping (do the pull this time). The input here is a thing that ALREADY worked and the output is a durable artifact plus the test that keeps it honest. It needs its own token because the failure it guards against is a skill that lands on disk looking finished, which is worse than no skill: every later run reaches for it instead of re-deriving the answer.",
+      "match": ["skillify", "codify", "codify this", "save this scrape", "make this permanent", "make it permanent", "turn this into a skill", "make this reusable", "package this up", "save this as a skill", "do this again next time", "i don't want to figure this out again", "i do not want to figure this out again", "keep this around", "so i never have to do this again"]
+    },
+    "generated-test-quality-gate": {
+      "label": "prove a generated test would actually catch the thing breaking",
+      "_why": "Separate from code-review and qa-testing because the subject is the test, not the code. A test that passes on a gutted input is indistinguishable from a good one in every report that only prints exit codes, so 'does that test test anything' is a question that needs a skill which answers it by breaking the input on purpose, not one that reads the assertions and forms an opinion.",
+      "match": ["does the test actually test", "is that test real", "would the test catch", "the test always passes", "smoke test", "vacuous test", "test quality", "asserts nothing", "mutation test", "is this test worth anything", "green but meaningless"]
+    },
+    "uptime-monitoring": {
+      "label": "watch a live url over a window of time, not once",
+      "_why": "Distinct from deploy-verification (is the right build serving) and page-evidence (did this page load). The defining word is DURATION: the answer needs repeated observations across minutes, because the failures it catches are intermittent, warm-up-only, or arrive a few minutes after the deploy when a cache expires. A single check answers a different question and answers it too early.",
+      "match": ["canary", "monitor the deploy", "monitor production", "monitor the site", "watch production", "watch prod", "watch the site", "keep an eye on", "uptime", "for the next few minutes", "over the next hour", "is it still up", "still serving", "poll the url", "check it every"]
+    },
+    "scope-posture": {
+      "label": "decide how ambitious this plan should be before reviewing it",
+      "_why": "Distinct from planning-review, which answers 'is this plan any good'. This request is upstream of that one: it asks how much to build at all, and the four honest answers (dream bigger, hold and cherry-pick, hold and harden, cut to the bone) lead to four different reviews of the same plan. It needs its own token because the posture is a decision the user owns, and a router that folds it into 'review the plan' hands back an opinion where a fork in the road was asked for.",
+      "match": ["expand scope", "cut scope", "reduce scope", "scope creep", "am i overbuilding", "is this overbuilt", "is this ambitious enough", "think bigger", "dream big", "go big", "cathedral", "10x version", "the ambitious version", "minimum viable version", "strip it down", "trim this down", "cut it down", "bare minimum", "should we build more", "should we build less", "what would make this great", "rethink this plan", "challenge the premise", "is this the right problem"]
+    },
+    "plan-report-gate": {
+      "label": "prove a plan review wrote its report before the plan is presented",
+      "_why": "Separate from review-evidence-gate, which asks whether a whole pipeline produced its per-phase outputs. This is the narrow end-of-review question about one file: is the review report actually in the plan, is it the last section, is its table filled, does the file end with the unresolved-decisions status. It needs its own token because the failure it catches reads as success from inside the conversation - review prose in the plan body feels finished and is not the report.",
+      "match": ["is the plan finished", "did it write the report", "review report missing", "report is mid-file", "unresolved decisions", "can i exit plan mode", "exitplanmode", "is the review report there", "did the review write anything", "plan file gate", "before i approve this plan"]
+    },
+    "deploy-target-detection": {
+      "label": "work out from the repository itself what actually deploys it",
+      "_why": "Distinct from shipping-deploy (do the deploy) and deploy-verification (prove the deploy landed). Here nothing is being deployed: the question is what the deploy path even IS, and the answer is read off disk. It needs its own token because the honest answer is often 'two platforms have evidence and I will not pick for you', and every other deploy capability is obliged to come back with one confident answer.",
+      "match": ["what deploys this", "what deploys it", "how does this deploy", "how do i deploy", "how does it deploy", "what platform is this on", "which platform", "deploy platform", "deploy target", "does push deploy", "does pushing deploy", "deploys on push", "deploy on push", "auto deploy", "auto-deploy", "is this on vercel", "is this on netlify", "is this on railway", "where does this deploy"]
+    },
+    "deploy-configuration": {
+      "label": "record how a project deploys, once, so later deploys can be checked against it",
+      "_why": "The setup half of shipping, and a separate token because it is the only deploy capability that WRITES a claim about the future rather than reading the present. The failure it prevents is silent and delayed: a trigger recorded as 'deploys automatically on push' in a repository that has no git remote reads fine, survives review, and surfaces weeks later as a merge that never reached production.",
+      "match": ["setup deploy", "set up deploy", "setup deployment", "set up deployment", "configure deploy", "configure deployment", "deploy config", "deploy configuration", "deploy settings", "set deploy platform", "production url", "health check", "health endpoint", "health check endpoint", "status command", "wire up deploys", "record how this deploys"]
+    },
+    "idea-diagnostic": {
+      "label": "pressure-test an idea before anything is built",
+      "_why": "Distinct from planning-review, which reads a plan that already exists, and from spec-authoring, which writes a ticket for something already decided. Here there is no plan and no ticket: the input is an intention, and the output may be that the thing is not worth building. It needs its own token because it is the only capability whose success case includes talking the user out of the work.",
+      "match": ["office hours", "brainstorm", "brainstorm this", "i have an idea", "got an idea", "is this worth building", "should i build", "should we build", "help me think through", "think this through with me", "pressure test", "poke holes in", "validate the idea", "is there demand", "who is this for", "is this a good idea", "worth doing", "before i build anything", "early idea", "half baked"]
+    },
+    "design-doc-authoring": {
+      "label": "produce the design doc that the later reviews read",
+      "_why": "The artifact, not the conversation. Separate from spec-authoring because a spec commits to one approach and a design doc is where the alternatives, the premises and the rejected paths live, and the plan reviews downstream read the second one. It needs its own token because 'write this up' after a brainstorm and 'file a ticket' want different skills and different templates.",
+      "match": ["design doc", "design document", "write up the design", "write it up as a design", "approaches considered", "alternatives considered", "compare the approaches", "what are the options for building", "narrowest wedge", "smallest version", "minimum viable version"]
+    },
+    "relationship-continuity": {
+      "label": "know whether we have done this before, and refuse to guess",
+      "_why": "Separate from context-read, which resumes the state of the WORK. This is state about the person: how many sessions, what was assigned last time, what has already been recommended. It needs its own token because the failure it catches reads as warmth rather than as an error. A history that cannot be read is not a new user, and treating it as one replays a first-meeting introduction at someone on session forty and re-recommends everything they have already seen.",
+      "match": ["have we done this before", "did we talk about this already", "welcome back", "which session is this", "how many sessions", "you already showed me", "you already recommended", "show me something new", "stop repeating", "something i have not seen", "builder profile", "my history", "last time you said", "what did you assign me"]
+    },
+    "extraction-evidence": {
+      "label": "prove the rows actually came off the page they are claimed to come from",
+      "_why": "Distinct from scraping (go and get the data) and from page-evidence (prove one page loaded). This is the question asked afterwards: are these rows real. It needs its own token because the failure it catches reads as a clean result. Handed an empty or blocked page and asked for JSON, a model returns {\"items\":[],\"count\":0}, which is indistinguishable from a page that genuinely has nothing on it. Routing that to a general scraper answers by scraping again, which produces the same empty answer with more confidence.",
+      "match": ["did it actually scrape", "prove the scrape", "are those rows real", "where did this data come from", "verify the scrape", "verify the extraction", "check the data came from", "did it really pull", "is this data real", "made up the data", "hallucinated the rows", "recheck the scrape", "audit the dataset", "provenance"]
+    },
+    "structured-data-export": {
+      "label": "turn a page into a file another tool can open",
+      "_why": "Separate from scraping because the deliverable is the file, not the answer in chat. 'Get me the prices' and 'get me a CSV of the prices' end differently: one is prose, the other has to exist on disk, have one row per record, and open as a table in Excel on Windows rather than as one column of mojibake. A skill that answers in chat has not done the second job.",
+      "match": ["export to csv", "as a csv", "give me a spreadsheet", "into a spreadsheet", "csv of", "json file of", "ndjson", "dump the data", "save the data", "into a file", "excel", "importable", "feed it into"]
+    },
+    "bot-wall-detection": {
+      "label": "tell a blocked, empty, or still-loading page apart from a page with no results",
+      "_why": "These are opposite answers that look identical downstream: 'there are no listings' and 'you never saw the listings'. A Cloudflare interstitial, a soft 404 serving 200, a JS shell, and a skeleton screen of identical placeholder rows are all valid HTML that parse cleanly and contain no data. It needs its own token because acting on the wrong one of those is how an outreach or competitor-research run quietly builds a dataset of nothing and reports it as a finding.",
+      "match": ["cloudflare", "captcha", "bot wall", "blocked me", "am i blocked", "403", "access denied", "why is it empty", "came back empty", "no results but", "page looks empty", "nothing on the page", "just a moment", "javascript rendered", "js rendered", "loads with javascript", "skeleton", "placeholder rows", "still loading"]
+    },
+    "context-restore-verification": {
+      "label": "reload saved working context only after checking it still describes reality",
+      "_why": "Separate from context-read, which is the request to load a saved context at all. This is the direction of that pair where being wrong is invisible: what a restore prints BECOMES what the model believes about the project, so a restore that looked in the wrong directory, or loaded a file that is not a saved context at all, does not fail loudly, it misleads for the rest of the session. The failure it catches reads as success: a full RESUMING banner with a title, a branch, a saved-at time and a remaining-work list, describing files deleted weeks ago on a branch that no longer exists. It also needs its own token because 'is that still accurate' is a question about a context already loaded, not a request to load one.",
+      "match": ["where was i", "where did i leave off", "pick up where", "resume where i left off", "restore context", "reload my context", "what was i doing", "what was i working on", "is that context still", "is this still accurate", "still valid", "out of date context", "stale context", "does that still apply", "last session", "did i already do"]
+    },
+    "webfont-verification": {
+      "label": "prove a proposed typeface can actually be loaded before anyone signs off on it",
+      "_why": "Separate from design-system (choose the faces) because the question is not aesthetic, it is whether the file exists on a server. It needs its own token because the failure it catches is invisible by construction: a stylesheet link for a family its provider does not serve returns HTTP 400, the browser silently renders the next family in the stack, and nothing on the page, in the console, or in the agent's output says so. Measured 2026-08-13, four of the six display faces gstack recommends return 400 from the Google Fonts API gstack tells you to load them from, so 'which provider serves this font' is a question that has to be answered by a request, not by a memory.",
+      "match": ["is that font free", "where does that font come from", "can i use that font", "font provider", "google fonts", "fontshare", "is it on google fonts", "font license", "font is not loading", "font did not load", "wrong font", "font fell back", "falling back to", "renders in times new roman", "self host the font", "webfont", "@font-face", "font link 400"]
+    },
+    "performance-regression-gate": {
+      "label": "decide whether a change made it slower or heavier, against stored numbers, with a threshold that can fail the run",
+      "_why": "Distinct from performance-benchmark, which is 'how fast is it right now'. This request is comparative and its answer has to be a gate: a number next to a stored number, judged by a rule, with an exit code something downstream can act on. It needs its own token because the failure it catches is the reassuring kind. A benchmark whose measurement silently returned nothing prints the metrics it does have and reads as clean, a baseline captured after the slow change landed makes the slow numbers the reference point forever, and a build that broke and now serves a 4KB error page in place of a 700KB app scores as an improvement on every threshold that only fires upward.",
+      "match": ["performance regression", "did it get slower", "is it slower", "slower than before", "faster than before", "did that make it faster", "bundle size", "bundle grew", "did the bundle grow", "bundle got bigger", "page got heavier", "load time went up", "compare performance", "performance before and after", "performance baseline", "capture a baseline", "performance budget", "perf budget", "web vitals", "core web vitals", "lighthouse", "budget check", "is it still fast", "regression in speed", "speed regression"]
+    },
+    "design-system-preview": {
+      "label": "render a proposed design system as a page you can look at, and prove the page is showing what it claims",
+      "_why": "Distinct from design-system (decide the rules), design-exploration (pick between directions) and design-review (audit a screen that already exists). The deliverable here is one artifact whose whole purpose is to be believed: a specimen page someone approves typography and colour from. It needs its own token because approving the wrong artifact is silent and expensive — a preview that fell back to a system font, or that was written to a path the opener could not find, looks exactly like a preview that worked.",
+      "match": ["preview the design system", "show me the fonts", "show me the palette", "font specimen", "type specimen", "swatches", "see the colors", "see the colours", "what would it look like", "render the design system", "design system preview", "style guide page", "styleguide", "brand preview", "before i pick the fonts"]
+    },
+    "ios-debug-bridge-sync": {
+      "label": "bring an iOS app's debug instrumentation back in line with the upstream templates it came from",
+      "_why": "Distinct from ios-development, which is building and testing the app itself. Here the subject is the instrumentation, not the product: files that were copied in from somewhere else and have drifted since. It needs its own token because the request is asked precisely when nobody knows what state those files are in, and the answer that reads best is the one that is wrong. Two absent version files compare equal, so 'already up to date' is what an unchecked install reports.",
+      "match": ["resync the ios debug bridge", "resync the debug bridge", "regenerate ios accessors", "regenerate the accessors", "update the ios instrumentation", "update the gstack ios instrumentation", "ios debug bridge", "debugbridge", "state accessors", "statserver", "debug overlay is out of date", "is the ios bridge up to date", "sync the ios templates", "gen-accessors", "snapshotable"]
+    },
+    "generated-code-drift": {
+      "label": "tell an upstream change apart from a local edit in a file that was generated or copied in",
+      "_why": "Separate from code-review, which reads a diff someone wrote on purpose. A generated or vendored file has two authors, and the only question that matters is which of them moved. Folding the two into one answer is how a resync silently reverts a fix someone made by hand, or overwrites a rendered file with the raw template it was rendered from and stops the build. The honest verdict here is often 'both changed, a human has to merge', which no capability that only reports a diff is allowed to say.",
+      "match": ["did i edit that generated file", "is that file generated", "generated file changed", "vendored file", "template drift", "out of sync with upstream", "diverged from upstream", "regenerate or keep my changes", "will this overwrite my edits", "did it clobber", "clobbered my changes", "local edits to a generated file", "codegen drift", "stale generated code", "do not overwrite my changes"]
+    },
+    "device-fix-evidence": {
+      "label": "prove a fix actually changed what the device shows, by measuring it",
+      "_why": "Distinct from qa-testing (find the bug) and debugging (find the cause). This is the last step, and it is the one that silently does not happen, because on a real device the proof is a screenshot and every worthless screenshot looks like a good one from inside the transcript. A sleeping phone returns a black rectangle, a 401 from the debug bridge gets written to post.png as a JSON body, and a capture taken before the rebuild finished is a picture of the old binary. All three differ from the pre-fix capture, so a checksum comparison passes them and an eyeball reports the bug gone. It needs its own token because the honest answer is often UNVERIFIED, which is neither 'fixed' nor 'still broken', and no other capability here is allowed to return it.",
+      "match": ["did the fix work", "did that actually fix it", "is the bug gone", "prove the fix", "verify the fix", "confirm the fix", "before and after screenshot", "compare the screenshots", "screenshot looks the same", "screen did not change", "screenshot is blank", "black screenshot", "is that screenshot real", "did it rebuild", "still the old build", "regression fixture", "reproducing snapshot", "snapshot is empty", "the bug is back", "it came back"]
+    },
+    "device-toolchain-preflight": {
+      "label": "say whether a device build loop can run on this machine at all, before it starts",
+      "_why": "Separate from every capability that DOES the work, because the answer is sometimes no and that has to be establishable in one command instead of discovered as a shell error three phases in. A skill that hands the model an xcodebuild line on Windows is not wrong about iOS, it is wrong about the machine, and the failure arrives after the agent has already edited source. It also needs its own token because 'no' here is not a failure state: a loop with a device half and an evidence half can still run the half that is pure file work, and saying which half is available is the actual deliverable.",
+      "match": ["can i build ios here", "can this run on windows", "do i need a mac", "is xcode installed", "xcodebuild not found", "xcodebuild: command not found", "devicectl", "is the toolchain there", "preflight", "what do i need installed", "why can't i build", "why cant i build", "simulator on windows", "iphone from windows"]
+    },
+    "ios-device-qa": {
+      "label": "exercise an iOS app on a real iPhone and report what it did",
+      "_why": "Separate from qa-testing, which assumes a URL and a browser, and from ios-development, which is writing and building the app. The distinguishing fact is the hardware: this work cannot begin without a paired phone, a Mac, and code compiled into the app under test, so 'yes' and 'not on this machine' are both complete answers and only this token can return the second one. Folding it into qa-testing is how a request to test an iPhone app gets answered with a headless browser pointed at nothing.",
+      "match": ["ios qa", "qa the ios app", "qa my ios app", "test my iphone app", "test the iphone app", "test the ios app on device", "on a real device", "on the real iphone", "on real hardware", "live device", "physical device", "tap through the app on my phone", "drive the app on the phone", "find bugs on the device", "swiftui qa", "screenshot the iphone"]
+    },
+    "remote-agent-authorization": {
+      "label": "decide what a remote agent or machine identity is allowed to do here, right now",
+      "_why": "Distinct from security-audit, which reads a codebase for weaknesses. This is a live decision with a yes or no, made per request against a grant file someone edited by hand, and its failure mode is unique: the answer that is wrong is indistinguishable from the answer that is right, because both are the word 'allowed'. The specific trap it exists to catch is a check that breaks and allows anyway, such as an expiry date the parser cannot read being treated as no expiry at all. It needs its own token because the correct response to an unreadable grant file is to deny everyone, and no capability whose job is to keep work moving is willing to say that.",
+      "match": ["allowlist", "allow list", "who can access", "which agent can", "can that agent", "remote agent access", "machine identity", "service identity", "tailnet", "tailscale identity", "capability tier", "grant expired", "revoke access", "token expiry", "did that grant expire", "is that still authorized", "least privilege", "scope the token"]
+    },
+    "ios-design-audit": {
+      "label": "audit the visual design of a native iOS app against the HIG",
+      "_why": "Distinct from design-review, which audits a live web page by querying a DOM for computed styles. There is no DOM here, so the mechanism is different in kind: half the rubric is decided by reading SwiftUI source (a fixed .system(size:) that ignores Dynamic Type, padding off the 4pt grid, a 28pt tap target, an icon-only Button with no VoiceOver label) and the other half needs a rendered screen on hardware that may not exist on this machine. Also distinct from ios-device-qa, which drives the app and reports what it did: this one is read-only and the deliverable is a score per dimension. It needs its own token because routing an iPhone design request to the browser skill produces an audit of nothing, and because the honest answer here is often partial in a way a web audit never is.",
+      "match": ["ios design", "iphone design", "swiftui design", "review the ios design", "audit the iphone app", "design qa the ios app", "human interface guidelines", "hig", "does my ios app look", "iphone app looks", "dynamic type", "voiceover label", "tap target", "44pt", "safe area insets", "navigationview", "navigationstack"]
+    },
+    "device-evidence-gate": {
+      "label": "refuse to score what no device was ever seen for",
+      "_why": "The failure it catches is invisible by construction. A ten-dimension iOS rubric is ten questions a model can answer plausibly from source it just read, so a run on a machine with no Xcode, no simulator and no phone produces the same shaped report, with the same 0-10 scores and the same 'on real hardware' header, as a run on an actual iPhone. The blank screenshot is the same failure one level down: a backgrounded app captures as a structurally perfect PNG of solid black, gstack's own failure table names that case, and then hands the detection to the model that is looking at the same image. Separate from visual-evidence-ledger, which asks whether the screenshot opens; this asks whether anything was ever seen at all, and its correct answer is a dimension left UNSCORED rather than a number.",
+      "match": ["no device", "no iphone", "without a device", "no mac", "no simulator", "simulator not available", "did you actually see the app", "black screenshot", "blank screenshot", "screenshot is black", "unscored", "did it actually run on the phone", "how do you know it looks", "you never saw", "did you look at the app", "scored it anyway"]
+    },
+    "debug-instrumentation-removal": {
+      "label": "take debug-only instrumentation back out of an app and prove none of it survives into a release build",
+      "_why": "The inverse of ios-debug-bridge-sync, which keeps instrumentation current, and not a case of code-review, which reads a diff someone wrote on purpose. Here the deliverable is an absence, and an absence is the one result you cannot see by looking at what is there. It needs its own token because the check everyone reaches for fails in both directions at once: a recursive grep for the package name exits non-zero on a path that does not exist, which inverts into a pass, and it also matches the comment somebody left saying the thing was removed, which makes a genuinely clean app permanently unable to satisfy it. Asked at exactly the moment nobody can afford a wrong answer, which is the week before a security audit or a store submission.",
+      "match": ["remove debugbridge", "strip the debug bridge", "clean the ios debug bridge", "remove the debug instrumentation", "strip the instrumentation", "strip debug code", "remove the qa hooks", "take out the debug hooks", "uninstall the debug bridge", "get gstack out of my app", "migrating off gstack", "before the security audit", "before we submit to the app store", "did i leave debug code in", "is there debug code in the release build", "is the debug server still in there", "does the release build still open a port", "make sure none of it ships"]
+    },
+    "conditional-compilation-integrity": {
+      "label": "prove the #if / #endif blocks still balance after code was cut out of them",
+      "_why": "Separate from debugging, which starts from an error someone already saw. This starts from an edit that produced no error at all on the machine that made it. Deleting a debug-only block is the single most common way to leave a dangling #if, and the damage is uniquely invisible: the removed text is gone, so every search for it comes back empty and reports clean, while the file no longer compiles. On Windows there is no Swift compiler to say otherwise, so 'it built fine' is not available either and the defect travels to CI. It needs its own token because the subject is the directive structure itself, not the code inside it, and no capability that reads code for meaning ever counts the braces.",
+      "match": ["unbalanced #if", "dangling #if", "expected #endif", "missing #endif", "extra #endif", "#endif without #if", "conditional compilation", "did i break the #if debug block", "does it still compile after that", "builds in debug but not release", "release build fails after i removed", "compile error after removing", "i deleted the debug block", "took out the #if debug"]
+    },
+    "browser-cookie-import": {
+      "label": "move a logged-in session out of the real browser and into the headless one",
+      "_why": "Distinct from browser-automation (drive a browser) and qa-testing (walk the app), because this is the step BEFORE either of those is worth doing. Almost everything worth checking on a product sits behind a login, and an anonymous headless session tests the marketing site instead. It needs its own token because the request arrives in the imperative ('use my session', 'log the browser in') and routing it to a general browser skill answers by opening a page that is not signed in.",
+      "match": ["import cookies", "import browser cookies", "import my cookies", "import my browser cookies", "browser cookies", "cookies from chrome", "cookies from my browser", "cookies into the headless", "bring my cookies", "use my session", "use my logged in session", "use my login", "log the browser in", "log in to the site", "login to the site", "authenticate the browser", "authenticated session", "signed in session", "my chrome cookies", "my browser session", "copy my cookies", "test the logged in page", "qa behind the login", "behind the paywall", "test as a logged in user"]
+    },
+    "session-auth-verification": {
+      "label": "prove the headless session is really signed in before anything is tested through it",
+      "_why": "Separate from browser-cookie-import (do the import) because the failure it catches reads as success on both sides of the wire. gstack's importer answers a domain it matched zero rows for with 'Imported 0 cookies for <domain>' and exit 0, and the page it then loads is a real page that renders fine, just logged out. So 'am I actually logged in' has to be answered from an artifact and a count, not from a screenshot that looks plausible. Route here whenever a check keeps landing on a sign-in screen, or when an authenticated result needs to be trusted.",
+      "match": ["am i logged in", "is the session logged in", "why am i logged out", "it keeps showing the login page", "redirected to login", "sign in page again", "shows the signed out version", "0 cookies", "no cookies imported", "did the cookies import", "did the login work", "prove the session", "is the browser authenticated", "session expired", "cookies did not load", "logged out again"]
+    },
+    "cookie-encryption-diagnosis": {
+      "label": "explain why a browser's cookies cannot be read, by scheme and by count",
+      "_why": "'There are no cookies' and 'you cannot decrypt these cookies' are opposite answers that produce the same empty list. Chrome 127+ on Windows uses App-Bound Encryption, whose key sits behind a SYSTEM-level DPAPI layer no unelevated same-user process can unwrap, so the correct output is a census and a refusal, not a retry. It needs its own token because every other capability here would answer by running the import again and getting the same empty result with more confidence.",
+      "match": ["app-bound encryption", "app bound encryption", "v20 cookies", "v10 cookies", "dpapi", "encrypted_key", "local state", "why cant i decrypt", "why can't i decrypt", "cookie decryption failed", "failed to decrypt", "keychain", "secret-tool", "libsecret", "safe storage", "which browser can i import from", "cookies are encrypted", "chrome cookie database", "cookies are empty"]
+    },
+
+    "markdown-document-export": {
+      "label": "turn a file you wrote into a document you can hand to a person",
+      "_why": "Separate from pdf-generation, which matches on the word 'pdf'. The request that actually arrives almost never says 'pdf': it says 'send this to the client', 'make me a one-pager', 'print this out'. The output format is an implementation detail of the errand, and a router that waits for the word 'pdf' misses the errand entirely.",
+      "match": ["one-pager", "one pager", "onepager", "leave-behind", "make this printable", "printable version", "print this out", "send this to the client", "client-ready", "hand this to", "turn this into a document", "make it a document", "export this doc", "export the markdown", "markdown to pdf", "make this a pdf", "make it a pdf", "turn this into a pdf", "generate a document", "make this look nice", "typeset this"]
+    },
+
+    "pdf-output-verification": {
+      "label": "prove a PDF is a real document rather than a file with the right extension",
+      "_why": "Producing a PDF and producing a DOCUMENT are different claims, and only the first one is what a renderer's exit code reports. A blank page, a page whose fonts are not embedded, and a page whose text layer copies out as 'S a i l i n g' all exit 0 everywhere. This token exists so 'is this thing actually okay' routes to a check on the artifact instead of to another render.",
+      "match": ["is this pdf ok", "is the pdf ok", "check the pdf", "verify the pdf", "did the pdf work", "is the pdf broken", "pdf is blank", "blank pdf", "empty pdf", "pdf has no text", "cant copy from the pdf", "can't copy from the pdf", "copy paste from the pdf", "fonts embedded", "embedded fonts", "how many pages", "page count", "validate pdf", "pdf came out wrong"]
+    },
+
+    "stack-self-upgrade": {
+      "label": "move this stack to a newer release of itself",
+      "_why": "A stack that ships over npx has to be able to replace its own installed files, which is the one operation where the tool doing the work is the thing being overwritten. It needs its own token because the request arrives as maintenance ('update yourself') rather than as work on the user's project, and every other capability here would answer it by editing the repository in front of it.",
+      "match": ["upgrade toolbay stack", "update toolbay stack", "upgrade the stack", "update the stack", "upgrade yourself", "update yourself", "upgrade your skills", "update your skills", "upgrade gstack", "update gstack", "get the latest version", "install the latest version", "new version available", "is there a newer version", "check for updates", "check for a new version", "am i on the latest", "am i up to date", "what version am i on", "which version is installed", "upgrade the tools", "update the tools"]
+    },
+
+    "upgrade-verification": {
+      "label": "prove an upgrade actually landed on disk instead of trusting the installer's exit code",
+      "_why": "Separate from stack-self-upgrade because 'install the new version' and 'is the new version really what is on disk' are answered by different evidence, and only the second one survives a partial copy. gstack's upgrade prints 'gstack v{new} — upgraded from v{old}!' with {new} substituted from the version read BEFORE the upgrade ran, so a half-finished install and a clean one produce the same sentence. On Windows, where skills are file-copied rather than symlinked, one locked file is all it takes. Route here whenever someone doubts an install, not to another install.",
+      "match": ["did the upgrade work", "did the update work", "verify the install", "verify the upgrade", "check the install", "is it actually installed", "did it really install", "is the install complete", "partial install", "half installed", "some files are missing", "the skill is still the old one", "it says it upgraded but", "still on the old version", "did the files actually change", "prove it upgraded", "roll it back", "restore the previous version", "the upgrade broke something"]
+    },
+
+    "update-check-integrity": {
+      "label": "tell 'you are up to date' apart from 'the check for updates failed'",
+      "_why": "These are opposite answers that upstream prints identically. gstack's update check answers an unreachable registry by writing UP_TO_DATE into its cache and exiting 0, so a failed probe becomes a clean bill of health for the next hour; its cache expiry is decided by `find -mmin`, which Windows' find.exe does not implement, so on the wrong PATH order the cache never expires at all. This token exists so 'why does it keep saying I am current' routes to an audit of the check itself rather than to running the same check again and believing it.",
+      "match": ["it says im up to date", "it says i'm up to date", "why does it say up to date", "the update check is wrong", "it never finds updates", "it stopped telling me about updates", "no update prompt", "check failed", "check_failed", "cant reach the registry", "can't reach the registry", "offline update check", "behind a proxy", "captive portal", "the version cache", "clear the update cache", "force an update check", "stale update check", "is the update check working"]
+    },
+
+    "review-claim-lint": {
+      "label": "check a review's own file:line citations and counts against the tree it reviewed",
+      "_why": "Distinct from code-review (read the change) and from review-evidence-gate (did the review produce its artifacts). Here the artifacts exist and the question is whether what they say is true. A citation is the most persuasive sentence a review produces and the cheapest one to invent, because nothing downstream opens the file: line 214 of a 140-line spec reads exactly like line 214 of a 400-line one. It needs its own token because the answer is arithmetic against the working tree, and every capability that would otherwise take the request answers it by re-reading the review.",
+      "match": ["did you actually open that file", "does that line exist", "is that line number right", "check the citations", "verify the references", "that file was renamed", "that file does not exist", "you made that up", "hallucinated the line", "cite your sources", "prove you read it", "which line was that", "the review says 0 gaps but", "the counts do not match", "contradicts itself", "lint the review", "check the review's claims"]
+    },
+
+    "test-coverage-gap-audit": {
+      "label": "map every branch a change introduces and name the ones no test touches",
+      "_why": "Separate from qa-testing, which exercises a running app, and from generated-test-quality-gate, which asks whether one test asserts anything. This is the enumeration: every conditional, error path, early return and user journey in the planned change, each matched against a test that exists or marked as a gap. It needs its own token because the deliverable is a diagram rather than a verdict, and because a prose paragraph describing the branches satisfies every self-check while covering nothing.",
+      "match": ["test coverage", "coverage gaps", "what is not tested", "whats not tested", "untested", "untested branches", "no test for", "which paths lack tests", "do we have tests for", "coverage diagram", "test plan", "what tests do i need", "missing tests", "test the error paths", "edge cases with no test", "100% coverage", "before i implement, what needs tests"]
+    },
+
+    "parallel-work-planning": {
+      "label": "split planned work into lanes that can run in separate worktrees without colliding",
+      "_why": "Not planning-review (is this plan any good) and not shipping-deploy (land it). The subject is execution order across agents or worktrees, and the failure it prevents is specific and mechanical: two lanes declared independent while both edit the same module directory, which surfaces as a merge conflict hours later, after both lanes finished. It needs its own token because whether two lanes actually are independent is computable from the modules they name, and a capability that answers with a plan-shaped opinion will not compute it.",
+      "match": ["parallel", "in parallel", "worktree", "worktrees", "split the work", "split this up", "run these at the same time", "multiple agents", "several agents", "fan out", "lanes", "what can run concurrently", "what depends on what", "dependency order", "can these two be done at once", "will these conflict", "merge conflict risk", "which parts are independent"]
+    },
+
+    "post-ship-documentation": {
+      "label": "bring the docs back in line with what actually shipped, driven by the release diff",
+      "_why": "Distinct from documentation, which is 'write or update a doc' as a standalone job. The defining input here is a diff that already landed: the work is not 'what should the README say' but 'what does the README now say that stopped being true when this branch merged'. It needs its own token because the request arrives immediately after shipping, in words that never mention docs at all ('did I forget anything', 'anything else before this merges'), and a router waiting for the word 'readme' misses it.",
+      "match": [
+        "update the docs",
+        "sync the docs",
+        "sync documentation",
+        "post ship docs",
+        "post-ship docs",
+        "docs after ship",
+        "document what changed",
+        "document what shipped",
+        "docs for this release",
+        "release notes",
+        "write the release notes",
+        "do the docs match",
+        "are the docs still right",
+        "are the docs accurate",
+        "stale docs",
+        "docs are out of date",
+        "did i forget anything",
+        "anything else before this merges",
+        "before this merges",
+        "what does this need before merge"
+      ]
+    },
+
+    "doc-claim-verification": {
+      "label": "prove a documentation file was really edited, rather than reported as edited",
+      "_why": "Separate from documentation and from code-review because the subject is the REPORT, not the docs. The failure it catches is invisible from inside the conversation: the model that decided to edit README.md is the model that reports README.md as edited, from the same context window, with no read-back in between, so a run where the edit was planned and never applied prints exactly the table a successful run prints. Routing that here reaches the check that re-hashes the file and refuses the claim, instead of one that will summarise the intention again.",
+      "match": [
+        "did you actually update",
+        "did it actually update the docs",
+        "was the readme really changed",
+        "did that edit land",
+        "prove the docs changed",
+        "verify the doc changes",
+        "which docs actually changed",
+        "did anything actually change",
+        "you said you updated",
+        "i don't see the change",
+        "i do not see the change",
+        "the file looks the same",
+        "unchanged but reported",
+        "doc health table",
+        "phantom edit",
+        "claimed updated"
+      ]
+    },
+
+    "changelog-preservation": {
+      "label": "make sure polishing a changelog did not quietly rewrite the history under it",
+      "_why": "Its own token because the damage is silent and permanent, and because gstack's own skill records the incident that motivates it: an agent asked to polish the newest entry replaced the entries beneath it. A changelog is the one file in a repository whose older lines are supposed to be immutable, so 'reword the top entry' and 'regenerate the changelog' are one keystroke apart and only one of them is ever wanted. No capability whose job is to improve the writing is willing to refuse an improvement.",
+      "match": [
+        "changelog",
+        "changelog entry",
+        "polish the changelog",
+        "rewrite the changelog",
+        "regenerate the changelog",
+        "did it clobber the changelog",
+        "changelog entries are gone",
+        "lost changelog entries",
+        "old entries missing",
+        "restore the changelog",
+        "changelog history",
+        "keep a changelog",
+        "release history",
+        "version history"
+      ]
+    },
+
+    "interaction-state-coverage": {
+      "label": "say what the screen shows while it loads, when it is empty, and when it fails",
+      "_why": "Separate from design-review, which audits a screen that already exists, and from planning-review, which asks whether a plan is any good overall. This is the narrow question asked BEFORE the code: are the four states nobody demos actually specified. It needs its own token because the failure it catches is invisible in a plan that reads as finished. A state table can be present, correctly shaped, and hold [spec] in every cell, which satisfies every self-check while specifying nothing. Whatever is left blank is what an engineer invents, which is how 'No items found.' ships as the empty state.",
+      "match": ["empty state", "empty states", "loading state", "error state", "what does it show while loading", "what happens when there are no results", "what if it fails", "zero results", "no results state", "skeleton or spinner", "what does the user see first", "interaction states", "state coverage", "did we spec the empty state", "edge case ux", "first run experience"]
+    },
+
+    "ai-slop-detection": {
+      "label": "tell whether a design brief specifies decisions or recites the generated-website defaults",
+      "_why": "Distinct from design-review (audit the pixels of a page that exists) and design-system (decide the rules once). The subject here is TEXT — a plan, a brief, a spec — and the question is whether it commits to anything. It needs its own token because the model asked to spot the pattern is usually the model that wrote it, so the request has to reach a skill that matches the written-down blacklist against the file with line numbers rather than one that will read the brief back and agree with itself.",
+      "match": ["looks ai generated", "looks like ai made it", "reads like ai wrote it", "looks like every other site", "generic saas", "saas template", "3 column feature grid", "three column features", "purple gradient", "clean modern ui", "looks templated", "cookie cutter", "is this brief specific enough", "vague design brief", "make it not look generated", "default font stack", "system-ui", "ai slop"]
+    },
+
+    "mockup-reference-integrity": {
+      "label": "prove the mockup a plan tells someone to build from can still be opened",
+      "_why": "Separate from design-exploration, which produces and compares variants in the moment, and from visual-evidence-ledger, which asks whether a screenshot backing a claim opens. This is about a path written into a document that outlives the conversation: an approved-mockup table is read weeks later, on another branch, by whoever implements. It needs its own token because the reference rots silently. A row citing a temp directory, an unexpanded $SLUG, or an API error body saved with a .png extension all read as a complete handoff in any review that only checks the table is present.",
+      "match": ["approved mockup", "approved mockups", "mockup path", "where is the mockup", "which mockup do i build from", "the mockup is missing", "mockup link is broken", "design reference", "build from the mockup", "is that mockup still there", "the image in the plan", "png in the plan", "design handoff", "which visual are we building"]
+    },
+
+    "developer-onboarding-review": {
+      "label": "review a plan for the people who will install, call, or read the thing being built",
+      "_why": "Distinct from planning-review, which asks whether a plan is any good, and from design-review, which audits what an end user sees. The subject here is the second audience: whoever integrates against this. It needs its own token because the rubric is different in kind — time to first working call, whether the interface is guessable without docs, what the error says at 2am — and because the first question it has to answer is what developer-facing surface even exists, which is read off the repository rather than inferred from the plan's prose. A plan that mentions a terminal is not a CLI.",
+      "match": ["dx review", "devex review", "dev ex review", "developer experience", "developer experience review", "developer experience audit", "api design review", "sdk review", "cli design", "cli ergonomics", "review the api design", "is this api any good", "developer facing", "review the sdk", "onboarding review", "developer onboarding", "will developers understand", "would a developer figure this out", "is this easy to integrate", "integration experience", "who is going to install this"]
+    },
+
+    "getting-started-path-verification": {
+      "label": "prove the documented getting-started path actually runs in the repository it documents",
+      "_why": "Separate from documentation, which is about whether docs exist, and from qa-testing, which needs a running app. The failure it catches is invisible from inside the README, because the README reads perfectly: an `npm run dev` with no `dev` script in package.json, a `cp .env.example .env` with no .env.example in the repo, a copy-paste block still holding YOUR_API_KEY. Every one of those is a dead end on the first thing a new developer does, and none of them can be found by reading the file that contains them — only by resolving its commands against the repository. It needs its own token because 'time to hello world' is otherwise always an estimate, and an estimate is the wrong answer when a step does not run at all.",
+      "match": ["time to hello world", "hello world", "tthw", "quickstart", "quick start", "getting started", "does the quickstart work", "does the readme work", "is the quickstart accurate", "readme is out of date", "readme is wrong", "the setup steps don't work", "the setup steps do not work", "getting started is broken", "npm run dev doesn't work", "missing script", "no such script", "env.example", "copy paste the readme", "follow the readme", "onboarding steps", "install instructions", "does the install actually work", "can a new dev run this", "new developer setup", "clone and run", "first run"]
+    },
+
+    "error-message-quality": {
+      "label": "measure whether error messages tell a developer what happened and what to do next",
+      "_why": "Separate from debugging, which starts from an error someone is trying to fix, and from code-review, which reads a diff. Here the error messages ARE the product surface, and the question is whether each one names the value that caused it, says what to do, and links anywhere. It needs its own token because the alternative is a model picking three errors to talk about, which selects for the ones it can talk about rather than the ones that are worst. A census scores all of them and lets the count choose which three get traced.",
+      "match": ["error messages", "error message quality", "are the errors helpful", "unhelpful error", "useless error message", "cryptic error", "the error doesn't say", "the error does not say", "error says nothing", "improve the errors", "better error messages", "error copy", "failure messages", "what will they see when it breaks", "invalid request", "something went wrong"]
+    },
+
+    "dx-review-continuity": {
+      "label": "know whether this project's developer experience has been reviewed before, and refuse to call a lookup that failed an absence",
+      "_why": "Separate from relationship-continuity, which is history about the person, and from retrospective, which looks back at shipped work. This is history about one dimension of one project, and it exists because the trend columns of a DX scorecard are worthless when they are filled from memory. The failure it catches reads as a clean first review: gstack keys its review log by branch, so a project on its fourth DX review is told it is on its first, and every other way that lookup can break — a missing reader, an unreadable directory, a slug that resolved differently this run — lands on the same NO_PRIOR_DX_REVIEWS string. Route here when someone asks whether the DX got better, because the honest answer is sometimes 'the history could not be read', which is not the same as none.",
+      "match": ["did the dx improve", "is the dx better", "dx trend", "dx score last time", "have we reviewed this before", "prior review scores", "what did the last review say", "no prior reviews", "review history", "did we review this already", "score from last time", "compare to the last review", "is it getting better", "has this improved since"]
+    },
+
+    "check-runner-integrity": {
+      "label": "tell 'the checks passed' apart from 'the checks did not run'",
+      "_why": "Separate from code-health, which asks how good the code is. This asks whether the thing that measured it measured anything, and the two answers look identical on a dashboard. gstack's /health reads a tool's exit code as `tool | tail -50; EXIT_CODE=$?`, which is tail's status and is therefore 0 forever, so a type checker exiting 2 is recorded as clean and scored 10/10; its detector is zsh and finds no checks at all on a Windows Python or PowerShell project, and its own rule says a skipped tool must not penalise the score. Everything green and nothing measured is the single most expensive false positive a quality tool can produce, and it needs its own token because every capability that answers 'is the code okay' will answer this by running the same broken check again.",
+      "match": ["did the checks actually run", "did the tests actually run", "is the score real", "why is everything passing", "everything is green", "all green but", "suspiciously clean", "it says clean but", "the check didn't run", "the check did not run", "nothing ran", "no output from the check", "exit code was wrong", "it passed but it's broken", "it passed but it is broken", "false pass", "is this score trustworthy", "unverified score", "coverage of the checks", "which checks are missing"]
+    },
+
+    "quality-trend": {
+      "label": "say whether code quality moved, and refuse to call a changed measurement a change in quality",
+      "_why": "Distinct from code-health (score it now) and from retrospective (what did we ship). The subject is two runs and the gap between them, and the failure it exists to catch is arithmetic: when a tool's weight is redistributed on the runs where it is missing, DELETING the check that was dragging the average raises the composite exactly like fixing the code would, and gstack's history line records only the scores, so 'Trend: IMPROVING (+0.9)' is what both look like. Route here when someone asks whether things got better, because the honest answer is sometimes that the two numbers are not comparable.",
+      "match": ["is the codebase getting better", "is quality improving", "quality trend", "health trend", "score over time", "better or worse than last week", "did the score go up", "why did the score jump", "why did the score drop", "compare to the last health check", "health history", "regression in quality", "are we improving", "trend since last run"]
+    },
+
+    "diagram-artifact-verification": {
+      "label": "prove a rendered diagram is a diagram, not a file with the right extension",
+      "_why": "Separate from diagramming, which asks for a picture to be drawn. This asks whether the picture that already exists says anything, and its failures are silent by construction. A renderer whose promise never resolved writes the literal string \"undefined\" into the .svg; a mermaid error graphic is a structurally valid SVG; a screenshot taken before the page painted is a perfect PNG of one flat colour; a scene file with an empty elements array opens as a blank canvas. All four exit 0 everywhere, and all four read as a delivery in a transcript. Routing here reaches the check that reads the file back off disk and refuses it, rather than a skill that will render it again.",
+      "match": ["is that diagram right", "is the diagram ok", "check the diagram", "verify the diagram", "did the diagram render", "diagram is blank", "blank diagram", "empty diagram", "the svg is empty", "svg says undefined", "diagram came out wrong", "the png is blank", "labels are missing from the diagram", "mojibake", "garbled labels", "wrong characters in the diagram", "syntax error in graph", "mermaid error", "did it actually draw"]
+    },
+
+    "editable-diagram-handoff": {
+      "label": "hand over a diagram the other person can open and change",
+      "_why": "Distinct from diagramming because the deliverable is not the image, it is the editability. 'Draw me a box' is satisfied by a raster; 'so I can move that box' needs a scene file plus a source that can be re-rendered, and a raster answers it wrongly while looking correct. It needs its own token because the honest answer is sometimes no: only flowcharts convert to an editable scene, so a sequence diagram handed over as editable is a promise that breaks in front of whoever opens it.",
+      "match": ["editable diagram", "can i edit the diagram", "can you edit that diagram", "open it in excalidraw", "excalidraw", "excalidraw file", "move the boxes", "tweak the diagram", "change the diagram", "re-render the diagram", "rerender the diagram", "diagram source", "mermaid source", "give me the mmd", "so i can edit it", "diagram for the readme", "put a diagram in the readme", "diagram for the pitch", "architecture drawing for the deck"]
+    },
+
+    "design-implementation": {
+      "label": "turn a chosen design into production markup in the framework this repo actually uses",
+      "_why": "Distinct from design-exploration (pick a direction), design-system (decide the rules) and design-review (audit a screen that exists). Here the decision is already made and the deliverable is code that lands in the repo. It needs its own token because the request is silently two requests — what to build AND what to build it in — and a router that only hears the first sends it somewhere that answers with a standalone HTML file. gstack's version greps package.json for \"react\" and takes the first match, so every Next.js repo is classified React and Tailwind is never seen at all; the file that comes back has no client boundary and its own palette. Whether the output is a server component, a client component, or one .html is not a preference, it is a fact about the repo, and it has to be read off disk before a line is written.",
+      "_matchNote": "\"mockup into\" is here rather than the fuller \"turn the mockup into code\" because the matcher is substring-based, and the sentence a person actually types is \"turn this mockup into a component\", which contains neither of the longer phrases. Verified with route.mjs explain before and after.",
+      "match": ["build the design", "code the design", "code the mockup", "code this up", "mockup into", "design into code", "make the design real", "make it real", "turn this into html", "turn this into a component", "implement this design", "implement the mockup", "build this page", "build the screen", "build the landing page", "build it in react", "build it in next", "design to code", "figma to code", "finalize the design", "make this a component", "convert the design", "from the mockup", "now build it"]
+    },
+
+    "markup-quality-gate": {
+      "label": "check generated markup against accessibility, token and slop rules before anyone calls it done",
+      "_why": "Separate from design-review, which is a human eye on a rendered screen, and from code-review, which reads a diff for defects. The subject is markup that a model just wrote, and the reviewer is the same model, which is why the answer has to come from something that exits non-zero rather than from a reading. gstack carries the identical rules — the AI slop blacklist, the alt attributes, the reduced-motion guard, never lorem ipsum — as bullet points in a markdown file addressed to the model about to break them, so nothing executes and 'done' is self-asserted. It needs its own token because the honest verdict includes a third state nobody asks for: the file was empty, unreadable, or of a type with no rules behind it, and reporting that as a pass is worse than reporting a finding.",
+      "match": ["check the markup", "check the html", "audit the component", "lint the jsx", "lint the markup", "is this html any good", "accessibility check", "a11y check", "missing alt", "alt text", "did i use the design tokens", "hardcoded colors", "hardcoded colours", "hardcoded hex", "before i call it done", "is this ready to ship", "check the generated page", "did it use the theme", "does this pass", "reduced motion", "focus ring", "keyboard accessible", "tap target", "touch target"]
+    },
+
+    "client-boundary-audit": {
+      "label": "find components using client-only React in a server component, before the build does",
+      "_why": "Routing this to debugging gets an investigation of a symptom that a whole-tree scan answers in one pass, because the defect is structural rather than a bug in any one line: in the Next App Router every file is a server component until a directive says otherwise, so useState in a file with no \"use client\" is not wrong code, it is code in the wrong place. It earns a token because the feedback arrives at build or first render rather than at write time, which means it is reliably introduced by exactly the workflow that generates several components at once and never runs them.",
+      "match": ["use client", "use client error", "missing use client", "server component error", "client component", "usestate is not allowed", "hooks in a server component", "event handlers cannot be passed", "only works in a client component", "why does this need use client", "server or client component", "rsc error", "app router error", "client boundary"]
+    },
+
+    "local-preview-server": {
+      "label": "serve generated markup locally and prove something is actually answering on the URL",
+      "_why": "Not browser-automation, which drives a browser that already has somewhere to go. This is the step before: putting the file at an address. It needs its own token because the failure is a lie rather than an error. gstack starts the server with `python3 -m http.server 0` and then recovers the kernel-assigned port with lsof, so on Windows, where lsof does not exist and python3 is the Microsoft Store alias stub, the variable is empty and the skill announces 'Live preview running at http://localhost:/finalized.html' with nothing running and its documented `open` fallback also missing. A preview that reports success it did not verify wastes the one thing the preview existed to buy, which is the user looking at it.",
+      "match": ["preview the page", "preview it", "serve it locally", "serve the html", "spin up a preview", "static server", "local server", "preview server", "let me look at it", "can i see it", "show me what it looks like", "open the preview", "what port", "which port is it on", "the preview url", "localhost is not loading", "nothing on that port"]
+    },
+
+    "question-suppression": {
+      "label": "stop the agent asking a question it has already been answered, without stopping the ones that cannot be undone",
+      "_why": "Not user-memory, which stores what the person is like and is read by a model that may or may not act on it. This is the enforcement half: a policy file plus a PreToolUse hook that removes the prompt before it is rendered, so it works when the model forgets. It needs its own token because the request arrives as an interruption rather than a task ('stop asking me that') and the only useful answer changes a hook's behaviour, not the current turn's. gstack has the idea and calls its version observational; on Windows its enforcement hook builds the path to its own door-type registry with new URL(import.meta.url).pathname, so the file is never found, all twelve one-way doors default to two-way, and a never-ask preference auto-approves a production rollback.",
+      "match": ["stop asking me", "stop asking about", "you already asked", "you asked me that", "i already told you that", "too many questions", "stop confirming", "stop confirming everything", "quit asking", "don't ask me again", "do not ask me again", "never ask me about", "always just do it", "just do it without asking", "tune questions", "question tuning", "fewer prompts", "stop prompting me", "what have you stopped asking", "what questions are muted", "unmute", "ask me again"]
+    },
+
+    "question-policy-inspection": {
+      "label": "show which questions are being suppressed, prove the suppression is real, and undo it",
+      "_why": "Split from question-suppression because setting a policy and auditing one have opposite risk profiles. Setting is cheap and reversible; auditing is what you do when you suspect something was decided for you, and the honest output includes the cases where the policy is stored but inert. Kept as its own token so 'what did you decide without me' cannot be routed to the thing that decides more without you.",
+      "match": ["what did you decide for me", "what are you not asking", "show my question policy", "list muted questions", "why didn't you ask", "why did you not ask", "did you skip a question", "is the question policy working", "prove it stopped asking", "how many prompts", "undo that preference", "clear my preferences", "start asking again"]
+    },
+
+    "cross-session-learning": {
+      "label": "keep, recall and prune what has been learned about this project across sessions",
+      "_why": "Distinct from user-memory, which is what the person told the agent about how THEY work, and from context-read, which resumes one session's work in progress. The subject here is durable knowledge about the codebase, and the store outlives every session that wrote to it. It needs its own token mainly because of the question that makes such a store worth having at all: not 'is there a learning about this' but 'how many times has this already cost me', which is arithmetic over recurrences rather than a recollection. gstack's store cannot answer it — its preamble counts the file with wc -l, which counts rows rather than sightings and silently drops the last one whenever the file does not end in a newline.",
+      "match": ["what have we learned", "what did we learn", "show learnings", "show me the learnings", "learnings", "project learnings", "lessons learned", "did we fix this before", "didn't we fix this before", "did we hit this before", "have we seen this before", "have we run into this", "i swear we fixed this", "log this learning", "record this lesson", "add a learning", "remember this for next time", "note this for next time", "prune learnings", "export learnings", "known pitfalls", "what do we know about this project", "this keeps happening", "same mistake again", "why do i keep making this mistake", "promote this to claude.md", "add this to claude.md", "should this be a rule"]
+    },
+
+    "learning-store-integrity": {
+      "label": "tell 'nothing has been learned' apart from 'the learnings could not be read'",
+      "_why": "Two opposite answers that upstream prints identically, and the wrong one is the one that ends the search. gstack's reader pipes the store through `bun -e` and ends with `2>/dev/null || exit 0`, so with bun absent — it is not a Claude Code dependency — a store holding three rows prints nothing and exits 0, and the `|| echo \"No learnings yet.\"` fallback written into gstack's own SKILL.md never fires either, because exiting 0 is not a failure. One corrupt line does the same thing in miniature: four rows on disk, `LEARNINGS: 1 loaded`, no warning, exit 0. Nothing can be written back from PowerShell to repair it either, because PowerShell 5.1 strips embedded double quotes when it builds a native process's command line, so `gstack-learnings-log '<json>'` answers every call with 'invalid JSON, skipping' and exit 1. This token exists so a doubted store routes to a reader that fails closed with a line number, rather than to another read that will confidently report zero.",
+      "match": ["no learnings", "it says no learnings", "learnings are empty", "why is the store empty", "where are my learnings", "learnings went missing", "lost my learnings", "did that get logged", "did the learning save", "did it record that", "is the learnings file ok", "corrupt learnings", "learnings.jsonl", "invalid json, skipping", "it says invalid json", "verify the learnings", "prove the learnings", "how many learnings", "did it actually remember"]
+    },
+
+    "shipped-work-audit": {
+      "label": "count what actually landed in a window, out of git, rather than out of memory",
+      "_why": "A narrower token than retrospective, which is the whole ritual: praise, habits, trend tables, tone. This is the arithmetic underneath it, and the two requests fail differently. 'How was the week' tolerates an impression; 'did that actually ship' is asked precisely when someone suspects their memory and the repository disagree, and an impression is the one answer that is useless there. The failure it catches is a confident narrative built on nothing: gstack's retro guards the window with `git remote | grep -c '^origin$' || echo 0`, and because grep -c PRINTS 0 and EXITS 1 the variable holds two lines and never equals \"0\", so the branch that exists to say 'do not trust this window' is unreachable; the run then does `git log origin/<default> | grep -v '^$' | sort | uniq -c`, where a nonexistent ref puts fatal: on stderr while the pipeline still exits 0, so a broken query and a quiet week hand the model the identical empty result. Route here when someone asks what really landed, because the honest answer is sometimes that the window was empty or the ref was wrong, and neither of those is a smaller week.",
+      "match": ["what did i actually ship", "what actually landed", "did that ship", "did it actually ship", "did i ship anything", "what landed this week", "what got done", "how many commits", "commit count", "how much did we ship", "prove what shipped", "what changed this week", "is that number real", "where did the week go", "what did i do today", "what did i do yesterday", "am i making progress"]
+    },
+
+    "cross-repo-activity": {
+      "label": "measure work across every project at once, not just the repo you happen to be standing in",
+      "_why": "Separate from shipped-work-audit because the unit of the answer is the portfolio rather than the repository, and because the question is usually about attention, not output: which project ate the week, and which one has quietly not been touched in a month. It earns its own token because its failure mode is the opposite of a single-repo retro's. There the risk is a fabricated week; here it is a silently SHORT list, where the repos that could not be read simply do not appear and the totals still look complete. gstack reaches this through a bun-compiled discovery binary that indexes AI-tool session files and writes diagnostics to /tmp, neither of which exists on a Windows box that installed gstack rather than building it, and it reports the losses as the prose footnote 'N repos could not be reached'. Route here when someone asks about all their projects, because a per-project table with a named failure row is the only version of that answer anyone can check.",
+      "match": ["across all my projects", "all my repos", "every project", "across projects", "which project did i work on", "where did my time go", "what have i been working on", "project by project", "which repos are active", "what have i neglected", "haven't touched in a while", "multi repo", "cross project", "everything i shipped", "all my projects this week"]
+    },
+
+    "live-dx-audit": {
+      "label": "walk the product's own getting-started flow for real and report what happened",
+      "_why": "Distinct from developer-onboarding-review, which reviews a PLAN before anything exists, and from getting-started-path-verification, which resolves the README's commands against the repository statically without running them or opening a browser. Here the product is already up and the request is to be the new developer: open the page, run the install, hit the error. It needs its own token because the failure it catches is the reassuring kind. gstack's live audit spends `$B`, a shell variable set in one Bash call and empty in every call after it, so `$B goto <url>` becomes bash's own `goto` and exits 127 with empty stdout; the skill has no state anywhere for 'the screenshot did not happen', and its scorecard's evidence column is the literal token [screenshots]. A run in which nothing was ever loaded produces the same document as a run in which everything was.",
+      "match": ["test the dx", "dx audit", "live dx audit", "audit the developer experience", "test the developer experience", "developer experience test", "try the onboarding", "run the onboarding", "walk the onboarding", "dogfood", "dogfood the product", "install it like a new user", "pretend you are a new developer", "be a new developer", "first five minutes", "does the install actually work", "does the npx install work", "try the quickstart for real", "actually run the quickstart", "walk through the install", "use it like a customer", "audit the signup flow"]
+    },
+
+    "onboarding-timing-evidence": {
+      "label": "put a real clock on how long getting started takes, instead of estimating it",
+      "_why": "Separate from live-dx-audit because it is the one number the whole audit is judged on and the one most likely to be invented. gstack's scorecard row reads `TTHW (measured)` and the per-step cells it is summed from read `Time: [est]` in the same file: it says estimate on one line and measured on another about the same number. Route here when someone doubts a duration, because the honest answer comes from a monotonic clock and a step list anyone can re-sum, not from a model's sense of how long a page took.",
+      "match": ["time the onboarding", "time the install", "how long does setup take", "how long does it take to get started", "how long to first working call", "is it under two minutes", "measure the onboarding", "put a clock on it", "did you actually time it", "is that number measured or guessed", "estimated or measured", "where does that number come from", "stopwatch", "how many minutes really", "tthw measured", "is the tthw real", "recompute the timing"]
+    },
+
+    "dx-audit-artifact": {
+      "label": "leave a developer-experience audit on disk, with the screenshots and logs its scores were computed from",
+      "_why": "Separate from visual-evidence-ledger, which asks whether one screenshot opens, and from review-evidence-gate, which asks whether a review pipeline produced its per-phase outputs. The subject here is a DX scorecard specifically, and the failure is that it is a template: eight rows of blank score cells with [screenshots] and [file refs] for evidence, which pasted unfilled is a finished-looking audit nobody can check and nothing can diff against next month. Route here when someone asks where the audit went, what backs a score, or wants this run compared with the last one, because the answer has to be a directory rather than a paragraph.",
+      "match": ["dx report", "dx scorecard", "where is the dx report", "save the dx audit", "dx audit artifact", "audit with screenshots", "screenshots for the audit", "show me the evidence for that score", "which screenshot backs that", "what backs that score", "the scorecard is blank", "empty scorecard", "unfilled scorecard", "the review has no evidence", "prove the audit ran", "did the audit actually load anything", "compare this dx run to the last one", "re-run the dx audit after the fixes", "did the dx actually improve"]
+    },
+
+    "adversarial-second-opinion": {
+      "label": "have a different model, from a different vendor, attack the change",
+      "_why": "Distinct from code-review, which is this model reading its own diff. The defining property is independence: the whole value comes from the reviewer not being the author, so the request cannot be satisfied by reviewing harder. It needs its own token because the honest answer is sometimes that no second opinion is available on this machine, and every capability whose job is to review will answer it by reviewing.",
+      "match": ["second opinion","another opinion","get another opinion","outside voice","outside opinion","independent review","independent second opinion","different model","another model","ask codex","codex review","codex challenge","consult codex","have codex look","what would another ai say","challenge my code","try to break this","adversarial review","red team this","poke holes in this code","am i missing something","sanity check this from outside"]
+    },
+
+    "external-reviewer-preflight": {
+      "label": "establish whether the outside reviewer can actually run and authenticate here, before anything is planned around it",
+      "_why": "Separate from the review itself, because the answer is sometimes no and a no has to arrive before an expensive prompt is built rather than as unparsed stderr afterwards. The failure it catches is specific: a name on PATH is not a working program, and a credential file that exists is not a credential. gstack tests the first with `command -v codex` and the second with `[ -f auth.json ]`, so a 0-byte auth.json answers AUTH_OK (reproduced on Windows, 2026-08-14) and the skill proceeds toward a review it will never get.",
+      "_matchNote": "The matcher is substring-based, so the phrase a person actually types has to be in here. \"codex return nothing\" is present alongside \"codex returned nothing\" because \"why did codex return nothing\" contains neither the past tense nor \"do nothing\". Verified with route.mjs explain before and after.",
+      "match": ["is codex installed","do i have codex","is codex set up","codex not found","codex cli","codex login","is codex authenticated","am i logged into codex","codex auth","auth.json","openai api key","codex api key","why did codex do nothing","codex returned nothing","codex return nothing","codex said nothing","codex produced no output","can i even run codex","check the codex setup","is the second opinion available"]
+    },
+
+    "review-gate-integrity": {
+      "label": "tell 'the reviewer found nothing' apart from 'the reviewer never spoke'",
+      "_why": "Two opposite results that a marker-absence gate spells identically. gstack's rule is 'if no [P1] markers are found, the gate is PASS', and on Windows its Codex output reaches that rule as zero bytes: the JSONL is piped through python3, which is the Microsoft Store alias stub, so `command -v python3` succeeds, gstack's own 'Python 3 is required' guard never fires, and PIPESTATUS[0] reports codex's exit status rather than the parser's. A [P1] SQL-injection finding was reproduced becoming GATE: PASS this way. It needs its own token because the correct verdict is a third one, UNVERIFIED, which no capability obliged to return pass or fail is able to give.",
+      "match": ["did the review actually pass","is that gate real","gate passed but","empty review","the review was empty","no findings or no review","did it actually review anything","unverified","why did it pass","passed with no output","zero findings","no output but it passed","prove the gate","is the pass real","review returned nothing"]
+    },
+
+    "documentation-authoring": {
+      "label": "write documentation that does not exist yet, partitioned by which reader need it serves",
+      "_why": "Split from documentation, which is 'edit the docs', and from post-ship-documentation, which is driven by a diff that already landed. The defining input here is absence: there is no document, and the first real decision is which of the four Diataxis quadrants the missing thing belongs to, because a tutorial and a reference for the same feature are different documents with different readers and mixing them produces something neither reader can use. It needs its own token because the request never names a file ('nobody else can run this', 'how would someone else use it'), so a router waiting for the word readme sends it to the skill that edits an existing one.",
+      "match": ["write docs for this", "write the docs", "generate documentation", "document this feature", "document this module", "document this project", "create a tutorial", "write a how-to", "write a howto", "explain this module", "docs for this project", "there are no docs", "we have no documentation", "nobody else can run this", "how would someone else use this", "onboard someone", "getting started guide", "no readme", "needs a readme", "write a reference", "api docs", "diataxis"]
+    },
+
+    "citation-verification": {
+      "label": "check that a document's file paths, symbols, flags, links and line citations point at things that actually exist",
+      "_why": "Separate from doc-claim-verification, which asks whether a file was really edited. This asks whether what the file SAYS is real. Documentation is the one artifact a language model is graded on plausibility by a reader who cannot check it, and the failure is silent: a fabricated `makeWidget()` next to a real `createWidget()` reads exactly like correct prose until somebody copies it. gstack's countermeasure is a self-review checkbox, 'Every API description matches the actual code signature', ticked by the same context window that wrote the description with no read-back in between. Routing here reaches the check that resolves every name against the source and prints the closest real one.",
+      "match": ["are the docs accurate", "is that actually in the code", "does that function exist", "did you make that up", "check the docs against the code", "verify the documentation", "do these examples work", "is that a real function", "is that a real flag", "are the links broken", "broken links", "dead links", "check the links", "does that file exist", "the path in the docs", "line numbers in the docs", "stale line reference", "hallucinated api", "made up function", "the example does not work", "the example doesn't work"]
+    },
+
+    "api-surface-extraction": {
+      "label": "list what the code really declares, each with the file and line it was read from",
+      "_why": "The input any honest reference document needs, and the thing no model can supply from recall. Distinct from code-review, which judges a change, and from post-ship-documentation, which reads a diff: this reads the tree and answers 'what could somebody type', which is the question a reference doc is an answer to. It is a separate token because it is also the useful answer to a question that is not about docs at all ('what does this export'), and because on Windows gstack's version of this step is a `find . -type f | head -200` that returns 'FIND: Parameter format not correct' and nothing else.",
+      "match": ["what does this export", "what are the public functions", "list the exports", "what's the public api", "what is the public api", "what env vars does this read", "what flags does this take", "what can i call", "public surface", "list the entry points", "map the project", "what files are in this project", "show me the structure"]
+    },
+
+    "doc-discoverability": {
+      "label": "measure how many clicks a document really is from the entry point, over the actual link graph",
+      "_why": "A document nothing links to is a document nobody reads, which makes it indistinguishable from a document nobody wrote. gstack states the rule ('every new document must be reachable within 2 clicks from README.md') inside the step where the agent is asked to confirm it about the files it just created, so the rule is only ever as good as the recollection of the thing being audited. Its own token because the request is usually about the outcome rather than the graph ('would a new person find this'), and because the honest answer is a number.",
+      "match": ["can anyone find these docs", "would a new person find this", "is it linked from the readme", "is this discoverable", "how do people find this doc", "orphaned docs", "orphan documentation", "nothing links to it", "is it in the table of contents", "add it to the readme", "link the docs", "how many clicks"]
+    },
+
+    "video-production": {
+      "label": "turn a plain sentence into a finished, rendered video",
+      "_why": "Every other token here describes work on a repository; this one produces a file that is not code, and the request arrives in a register nothing else matches. 'make me a video showing off X' has no verb any of the tokens above recognise, so before this existed it routed to nothing at all, or to design-review on the word 'looks'. It also has a cost profile of its own: a wrong guess about aspect ratio throws away minutes of encoding rather than seconds of reading, which is why the skill behind it is allowed to ask a question and the rest are not.",
+      "_matchNote": "Deliberately NOT here: 'record the screen', 'take a screenshot', 'gif'. Those are capture requests that browse and qa already own, and a capture is not an edit. Also not here: bare 'edit' or 'render', which collide with editing code and rendering a page. Verified with route.mjs explain before and after.",
+      "match": ["make me a video", "make a video", "create a video", "generate a video", "i need a video", "video showing off", "video showing", "video about", "make a reel", "a reel", "make a short", "youtube short", "tiktok video", "promo video", "promo", "demo video", "launch video", "teaser", "trailer", "sizzle", "render a video", "edit this footage", "cut this footage", "b-roll", "shot list", "aspect ratio", "9:16", "16:9"]
+    },
+
+    "visible-browser-session": {
+      "label": "open a browser window a person can watch, and prove it is really open",
+      "_why": "Separate from browser-automation because the two answer opposite questions. browser-automation asks 'can something drive a page', and the fastest yes is headless. This asks 'can a HUMAN see it happen', and headless is a flat no. The requests that need it are the ones where the evidence is the watching: a login the person has to complete by hand, a cookie wall a fresh headless profile cannot pass, a flow someone wants to see with their own eyes before believing it. Folding it into browser-automation routes every one of those to the headless daemon, which does the work perfectly and shows nobody anything.",
+      "_matchNote": "\"take a screenshot\" and \"verify the page\" are deliberately NOT here. A screenshot is evidence produced FOR a person, not a window shown TO one, and browse already owns it and is faster. Putting them here would pull ordinary QA onto a browser launch that costs seven seconds and a visible window. Verified with route.mjs explain before and after.",
+      "match": ["open the browser", "open a browser", "visible browser", "headed browser", "not headless", "real browser", "browser window", "with a window", "open chrome", "launch chrome", "launch chromium", "connect chrome", "connect to chrome", "control my browser", "gstack browser", "open gstack browser", "show me the browser", "watch it happen", "watch you work", "let me watch", "let me see it happen", "so i can see it", "i need to log in", "log in first", "behind a login", "cookie wall", "cookie-gated", "captcha"]
+    },
+
+    "browser-extension-integrity": {
+      "label": "check the browser sidebar extension is really installed and loadable before anything relies on it",
+      "_why": "The sidebar is the whole reason to open a visible browser, and it is the part most likely to be quietly absent: it lives in a directory whose name depends on which agent tool installed gstack, and a missing one produces a browser window that looks completely normal. It gets its own token so 'the side panel is empty' and 'the extension will not load' route to the thing that reads the manifest off disk, rather than to a browser launch that will cheerfully succeed and prove nothing.",
+      "match": ["side panel", "sidepanel", "sidebar", "activity feed", "the extension", "extension not loading", "extension is not loading", "load unpacked", "chrome extension", "puzzle piece", "gstack extension", "manifest.json", "panel is empty", "panel is blank"]
+    },
+
+    "browser-session-teardown": {
+      "label": "stop a running browser session without leaving it orphaned",
+      "_why": "Closing is not the reverse of opening and cannot share its token. Opening can be retried; a bad close leaves a process nothing on the machine has a record of, holding a port and a profile lock, and the next open then fails for a reason that points nowhere. It also has its own failure mode worth routing to on purpose: 'the browser is still running' and 'port 34567 is in use' are reports ABOUT a teardown that already went wrong.",
+      "match": ["close the browser", "close chrome", "disconnect the browser", "disconnect chrome", "stop the browser", "kill the browser", "quit the browser", "shut the browser", "browser is still running", "chrome is still running", "still open", "orphaned browser", "stale browser", "browser won't close", "browser will not close", "port 34567", "port already in use", "profile lock", "singletonlock", "already connected"]
+    },
+
+    "browser-agent-pairing": {
+      "label": "hand another agent access to this machine's browser, on purpose and on the record",
+      "_why": "Separate from browser-automation, which asks whether something can drive a page. This asks who else may drive it, and the answer is a credential that leaves the machine. It is also separate from remote-agent-authorization, which reads an existing grant and answers yes or no: this token is the moment the grant is created, where the defaults decide everything and the person is the only one who can widen them. It exists because 'share my browser' arrives sounding like a convenience and is in fact the largest single-command privilege transfer in the stack.",
+      "_matchNote": "\"open the browser\" and \"control my browser\" are deliberately NOT here; they belong to visible-browser-session, which shows a window to the person sitting there rather than giving a credential to something that is not. Verified with route.mjs explain before and after.",
+      "match": ["pair agent", "pair an agent", "pair with agent", "pair the agent", "connect agent", "connect an agent", "connect another agent", "share my browser", "share the browser", "share your browser", "give browser access", "browser access for", "let another agent use my browser", "another agent needs the browser", "hand off the browser", "hand over the browser", "second agent", "setup key", "one-time key", "pairing key", "pair openclaw", "pair codex", "pair cursor", "pair hermes"]
+    },
+
+    "grant-revocation-proof": {
+      "label": "take access back, and prove it actually went away",
+      "_why": "A revoke is the one operation whose failure looks exactly like its success: the command returns, nobody objects, and the other party still has the key. It needs its own token because the useful answer is never the word revoked, it is the re-read that shows the session gone, and no capability whose job is to perform an action is in the habit of checking afterwards. It also carries the questions that come later, 'who has access' and 'did that ever get cut off', which are audits rather than actions.",
+      "_matchNote": "Deliberately NOT here: \"rotate the key\" and \"new api key\", which are credential management for services this stack does not hold. Verified with route.mjs explain before and after.",
+      "match": ["revoke", "revoke it", "revoke that", "cut off access", "cut them off", "take access away", "take back access", "disconnect the agent", "kick that agent", "kill the session", "end the session", "did the revoke work", "is it actually revoked", "does it still have access", "still has access", "who is connected", "what agents are connected", "which agents have access", "list the agents", "expired grants", "sweep expired", "clean up access"]
+    }
+  },
+
+  "gates": {
+    "_comment": [
+      "These decide whether the marketplace tier is even eligible. They exist so that",
+      "'offer to search the marketplace' is a computed verdict with printed reasons, not a",
+      "mood. If the gate says no, the router says nothing about the marketplace at all."
+    ],
+    "artifactNouns": [
+      "harness", "framework", "library", "package", "sdk", "connector", "integration",
+      "adapter", "pipeline", "workflow", "agent", "skill", "prompt", "template",
+      "dataset", "scraper", "parser", "converter", "generator", "linter", "plugin",
+      "extension", "backtest", "simulator", "emulator", "crawler", "indexer", "bot"
+    ],
+    "gapPhrases": [
+      "is there a", "does anyone have", "does one exist", "anything out there",
+      "i need a", "we need a", "looking for a", "off the shelf", "already built",
+      "rather not build", "don't want to build", "do not want to build", "from scratch",
+      "no idea how to", "out of my depth", "would take weeks", "would take days"
+    ],
+    "antiSignals": {
+      "_comment": "Any of these present and the marketplace tier is refused, whatever else matched.",
+      "debugging": ["stack trace", "traceback", "why is it", "why does it", "it broke", "it's broken", "it is broken", "failing test", "error message", "exception", "regression"],
+      "trivial": ["typo", "rename", "add a comment", "reformat", "one-liner", "quick question", "what does this do", "explain this"],
+      "already-answered": ["never mind", "no thanks", "not interested", "don't offer", "do not offer", "stop suggesting"]
+    },
+    "completionPhrases": {
+      "_comment": "Signals that a finished, reusable artifact now exists. Used for the sell tier.",
+      "match": ["it works", "that works", "it's working", "it is working", "finished", "done with", "shipped it", "that did it", "we built", "i built", "we just built", "it's ready", "it is ready", "all tests pass"]
+    },
+    "minSpecificTerms": 2,
+    "_minSpecificTermsWhy": "The Toolbay server's matcher strips stopwords and needs at least two distinct specific terms, so a vaguer query is guaranteed to return nothing. Refusing to send it is cheaper and more honest than sending it and reporting an empty result."
+  }
+}

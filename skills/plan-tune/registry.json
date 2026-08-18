@@ -1,0 +1,292 @@
+{
+  "_derived": [
+    "Toolbay Stack, Copyright (c) 2026 Toolbay. MIT.",
+    "",
+    "DERIVED WORK. Every question id below, and its one-way/two-way classification,",
+    "comes from scripts/question-registry.ts in gstack by Garry Tan",
+    "(https://github.com/garrytan/gstack, MIT, Copyright (c) 2026 Garry Tan).",
+    "The classifications are his safety judgements and are reproduced unchanged so",
+    "that a preference set under gstack means the same thing here. Not affiliated",
+    "with or endorsed by Garry Tan. See NOTICE.",
+    "",
+    "WHY IT IS JSON AND NOT TypeScript. gstack's copy is a .ts module, and its",
+    "PreToolUse hook cannot import it at hook time, so the hook re-reads the file",
+    "and scrapes it with a regex. That scrape is resolved from a path built with",
+    "new URL(import.meta.url).pathname, which on Windows yields '/C:/...' and",
+    "resolves to 'C:\\C:\\...'. The file is never found, the registry loads as {},",
+    "and every one of the 12 one-way doors below silently defaults to two-way.",
+    "Data that a hook must read on a hot path is data, so here it is data."
+  ],
+  "_doorTypes": {
+    "one-way": "Irreversible, destructive, or architecture-forking. NEVER auto-decided, whatever the user's preference says.",
+    "two-way": "Reversible. May be auto-decided when the user has explicitly asked for that."
+  },
+  "version": 1,
+  "questions": {
+    "autoplan-taste-decision": {
+      "skill": "autoplan",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "autoplan-user-challenge": {
+      "skill": "autoplan",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "cso-finding-fix": {
+      "skill": "cso",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "cso-global-scan-approval": {
+      "skill": "cso",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "gstack-upgrade-inline": {
+      "skill": "gstack-upgrade",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "investigate-fix-apply": {
+      "skill": "investigate",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "investigate-hypothesis-confirm": {
+      "skill": "investigate",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "land-and-deploy-merge-confirm": {
+      "skill": "land-and-deploy",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "land-and-deploy-rollback": {
+      "skill": "land-and-deploy",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "office-hours-approach-choose": {
+      "skill": "office-hours",
+      "door": "two-way",
+      "category": "routing"
+    },
+    "office-hours-cross-model-run": {
+      "skill": "office-hours",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "office-hours-design-doc-approve": {
+      "skill": "office-hours",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "office-hours-landscape-privacy-gate": {
+      "skill": "office-hours",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "office-hours-mode-goal": {
+      "skill": "office-hours",
+      "door": "two-way",
+      "category": "routing"
+    },
+    "office-hours-premise-confirm": {
+      "skill": "office-hours",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "plan-ceo-review-expansion-proposal": {
+      "skill": "plan-ceo-review",
+      "door": "two-way",
+      "category": "cherry-pick"
+    },
+    "plan-ceo-review-mode": {
+      "skill": "plan-ceo-review",
+      "door": "two-way",
+      "category": "routing"
+    },
+    "plan-ceo-review-outside-voice": {
+      "skill": "plan-ceo-review",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "plan-ceo-review-premise-revise": {
+      "skill": "plan-ceo-review",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "plan-ceo-review-promote-to-docs": {
+      "skill": "plan-ceo-review",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "plan-design-review-fix": {
+      "skill": "plan-design-review",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "plan-design-review-mode": {
+      "skill": "plan-design-review",
+      "door": "two-way",
+      "category": "routing"
+    },
+    "plan-devex-review-friction-fix": {
+      "skill": "plan-devex-review",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "plan-devex-review-mode": {
+      "skill": "plan-devex-review",
+      "door": "two-way",
+      "category": "routing"
+    },
+    "plan-devex-review-persona": {
+      "skill": "plan-devex-review",
+      "door": "two-way",
+      "category": "clarification"
+    },
+    "plan-eng-review-arch-finding": {
+      "skill": "plan-eng-review",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "plan-eng-review-outside-voice": {
+      "skill": "plan-eng-review",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "plan-eng-review-scope-reduce": {
+      "skill": "plan-eng-review",
+      "door": "two-way",
+      "category": "routing"
+    },
+    "plan-eng-review-test-gap": {
+      "skill": "plan-eng-review",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "plan-eng-review-todo-add": {
+      "skill": "plan-eng-review",
+      "door": "two-way",
+      "category": "cherry-pick"
+    },
+    "plan-tune-confirm-mutation": {
+      "skill": "plan-tune",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "plan-tune-declared-dimension": {
+      "skill": "plan-tune",
+      "door": "two-way",
+      "category": "clarification"
+    },
+    "plan-tune-enable-setup": {
+      "skill": "plan-tune",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "preamble-completeness-intro": {
+      "skill": "preamble",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "preamble-cross-project-learnings": {
+      "skill": "preamble",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "preamble-proactive-behavior": {
+      "skill": "preamble",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "preamble-routing-injection": {
+      "skill": "preamble",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "preamble-telemetry-consent": {
+      "skill": "preamble",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "preamble-vendored-migration": {
+      "skill": "preamble",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "qa-bug-fix-scope": {
+      "skill": "qa",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "qa-tier": {
+      "skill": "qa",
+      "door": "two-way",
+      "category": "routing"
+    },
+    "review-finding-fix": {
+      "skill": "review",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "review-llm-trust-boundary": {
+      "skill": "review",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "review-sql-safety": {
+      "skill": "review",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "ship-changelog-voice-polish": {
+      "skill": "ship",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "ship-greptile-comment-false-positive": {
+      "skill": "ship",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "ship-greptile-comment-valid": {
+      "skill": "ship",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "ship-pre-landing-review-fix": {
+      "skill": "ship",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "ship-release-pipeline-missing": {
+      "skill": "ship",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "ship-test-failure-triage": {
+      "skill": "ship",
+      "door": "one-way",
+      "category": "approval"
+    },
+    "ship-todos-create": {
+      "skill": "ship",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "ship-todos-reorganize": {
+      "skill": "ship",
+      "door": "two-way",
+      "category": "approval"
+    },
+    "ship-version-bump-tier": {
+      "skill": "ship",
+      "door": "two-way",
+      "category": "routing"
+    }
+  }
+}

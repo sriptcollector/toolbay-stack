@@ -1,0 +1,569 @@
+{
+  "_comment": [
+    "The vocabulary and the taste of the video skill. Toolbay Stack, Copyright (c) 2026 Toolbay. MIT. Original work.",
+    "",
+    "Everything a human would argue about lives in this file: which surfaces exist, how long a",
+    "video should be on each one, what aspect that surface is, which words in a prompt mean which",
+    "surface, what shots a launch video is made of, and the sentence the skill says when it",
+    "explains a decision. scripts/tb-video.mjs contains none of it. The code knows there is such",
+    "a thing as a platform and that a platform has a duration and a reason; it does not know that",
+    "Reels is 9:16, that 22 seconds is the cliff, or that the word 'ig' means Instagram.",
+    "",
+    "This is the same split as skills/modes/modes.json and skills/memory/memory.json, and it is",
+    "here for the same reason: the thing most likely to be WRONG is a value, not a code path. When",
+    "22 seconds turns out to be 19, that is a one-line edit by whoever noticed, not a patch.",
+    "",
+    "HOW MATCHING WORKS. Every 'match' array is a list of literal lowercase phrases. A prompt is",
+    "lowercased and searched for each phrase as a whole word (or as a substring when the phrase",
+    "already contains a space). Longer phrases score higher than short ones, so 'youtube shorts'",
+    "beats 'youtube'. Nothing here is a regular expression; if you can type it, you can add it."
+  ],
+
+  "version": "0.1.0",
+
+  "engine": {
+    "_comment": [
+      "Diffusion Studio's CLI. It is NOT on npm: @diffusionstudio/cli 404s on the registry, and",
+      "the only published packages are @diffusionstudio/core (the browser engine) and",
+      "@diffusionstudio/jsx (the types). dapi ships bundled inside the Diffusion Studio desktop",
+      "app, so getting the app is what puts the CLI within reach. The commands below are the ones",
+      "the editor's own README documents; the CLI is self-describing, so `dapi <group> --help` is",
+      "the authority if any of this drifts."
+    ],
+    "bin": "dapi",
+    "probeArgs": ["--help"],
+    "whoamiArgs": ["whoami"],
+    "mountArgs": ["mount", "{composition}"],
+    "renderArgs": ["node", "render", "-o", "{output}"],
+    "timeoutMs": 900000,
+    "install": [
+      "dapi is not on npm. It ships inside the Diffusion Studio app.",
+      "",
+      "  macOS (Apple Silicon), recommended:",
+      "    brew install --cask diffusionstudio/tap/editor",
+      "",
+      "  macOS, app already installed from the .dmg:",
+      "    Diffusion Studio > Install dapi Command Line Tool",
+      "",
+      "  Any platform, from source (Node 20+ and npm):",
+      "    git clone https://github.com/diffusionstudio/editor.git",
+      "    cd editor && npm install",
+      "    cp apps/web/.env.example apps/web/.env      # the app will not run without it",
+      "    npm run dev:desktop                          # builds the CLI and launches the app",
+      "    npm run symlink:create --workspace=@diffusionstudio/cli",
+      "",
+      "The published download is macOS (Apple Silicon) only. On Windows the from-source path is",
+      "the only one, and it wants a running Electron app for the CLI to talk to.",
+      "",
+      "Verify with: dapi --help"
+    ]
+  },
+
+  "verify": {
+    "_comment": [
+      "What the finished file has to prove before this skill will call it a render. These are the",
+      "arguments handed to tb-video-evidence.mjs; the checks themselves are not configurable,",
+      "because a tolerance you can widen to infinity is not a check.",
+      "toleranceSeconds is half a second because encoders land a frame or two either side of an",
+      "exact request and 30fps is 0.033s a frame; it is not there to absorb a wrong composition.",
+      "",
+      "The byte floor is DELIBERATELY LOOSE, and the first version of it was wrong. Set at 4000",
+      "bytes per second it refused a real, correct 22-second render, because the videos this skill",
+      "generates are type on a flat background and that is exactly what modern codecs compress to",
+      "almost nothing. A 22s black-and-type render measures about 57KB. So the floor is not a",
+      "quality bar and must never become one: the structural checks (a real container, a video",
+      "track with real dimensions, a non-empty mdat or Cluster, the right duration, the right",
+      "aspect) do all the actual work, and this only catches the residue case of a file that is",
+      "structurally intact and holds essentially no frames. 250 bytes a second means a 22-second",
+      "render under about 5.5KB is refused, which no working encoder produces."
+    ],
+    "toleranceSeconds": 0.5,
+    "aspectTolerance": 0.02,
+    "minBytesPerSecond": 250,
+    "minBytesFloor": 10000
+  },
+
+  "defaults": {
+    "platform": "reels",
+    "purpose": "showcase",
+    "tone": "confident",
+    "container": "mp4"
+  },
+
+  "platforms": {
+    "reels": {
+      "label": "Instagram Reels",
+      "match": ["reel", "reels", "instagram", "insta", "ig"],
+      "aspect": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "seconds": 22,
+      "why": {
+        "surface": "Built for Instagram Reels: a full-screen, sound-off, scroll-interrupted surface where the video is competing with a thumb already in motion.",
+        "aspect": "9:16, because you said Reels and Reels is a full-bleed vertical surface. A 16:9 file there gets pillarboxed into a third of the screen and reads as a repost before anyone has watched a frame.",
+        "seconds": "22 seconds, because that is just under the Reels drop-off cliff. Completion rate is the input the ranking cares about, and a 40-second cut of the same idea completes far less often than a 22-second one."
+      }
+    },
+    "tiktok": {
+      "label": "TikTok",
+      "match": ["tiktok", "tik tok"],
+      "aspect": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "seconds": 18,
+      "why": {
+        "surface": "Built for TikTok, where the same clip gets played twice before anyone decides about it, so the cut is timed to survive a loop.",
+        "aspect": "9:16, because TikTok is vertical-native and crops anything else.",
+        "seconds": "18 seconds, because TikTok's rewatch loop rewards a cut short enough that the second play starts before anyone decides to leave."
+      }
+    },
+    "shorts": {
+      "label": "YouTube Shorts",
+      "match": ["shorts", "youtube shorts", "yt shorts"],
+      "aspect": "9:16",
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "seconds": 26,
+      "why": {
+        "surface": "Built for YouTube Shorts, where the audience arrived from a search habit rather than a scroll and will hold a beat longer than a Reels viewer.",
+        "aspect": "9:16, because Shorts only accepts vertical into the Shorts shelf.",
+        "seconds": "26 seconds, because Shorts tolerates a longer hold than Reels and the extra four seconds buys one more proof shot."
+      }
+    },
+    "youtube": {
+      "label": "YouTube (landscape)",
+      "match": ["youtube", "yt", "landscape", "widescreen"],
+      "aspect": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "seconds": 45,
+      "why": {
+        "surface": "Built for the landscape YouTube player, where somebody chose to press play and is not being interrupted by anything.",
+        "aspect": "16:9, because this is the landscape player and vertical would waste two thirds of the frame.",
+        "seconds": "45 seconds, because a landscape viewer arrived on purpose and will hold longer than a scroller who was interrupted."
+      }
+    },
+    "x": {
+      "label": "X / Twitter",
+      "match": ["twitter", "x post", "on x", "tweet"],
+      "aspect": "1:1",
+      "width": 1080,
+      "height": 1080,
+      "fps": 30,
+      "seconds": 20,
+      "why": {
+        "surface": "Built for the X timeline, where it autoplays muted at thumbnail size inside a column of text and is never tapped to fullscreen.",
+        "aspect": "1:1, because square holds its size in a timeline that autoplays muted and never gets tapped to fullscreen.",
+        "seconds": "20 seconds, because a muted autoplay in a feed is judged in the first two and abandoned by thirty."
+      }
+    },
+    "linkedin": {
+      "label": "LinkedIn",
+      "match": ["linkedin"],
+      "aspect": "1:1",
+      "width": 1080,
+      "height": 1080,
+      "fps": 30,
+      "seconds": 30,
+      "why": {
+        "surface": "Built for LinkedIn, where the viewer is deciding whether you are credible, not whether you are entertaining.",
+        "aspect": "1:1, because LinkedIn's feed is square-first and vertical gets cropped in the desktop column.",
+        "seconds": "30 seconds, because this audience wants the claim substantiated, not teased."
+      }
+    },
+    "landing-hero": {
+      "label": "Landing page hero loop",
+      "match": ["landing page", "hero", "website", "loop", "background video", "homepage"],
+      "aspect": "16:9",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "seconds": 12,
+      "why": {
+        "surface": "Built as a landing page hero loop, which plays behind the headline and the button and must never pull attention off either.",
+        "aspect": "16:9, because a hero sits behind headline copy and has to span the width of the page.",
+        "seconds": "12 seconds, because it loops. A hero loop long enough to notice the seam is a hero loop that distracts from the button."
+      }
+    }
+  },
+
+  "purposes": {
+    "showcase": {
+      "label": "show the thing off",
+      "match": ["show off", "showing off", "showcase", "show it off", "highlight", "flex"],
+      "beats": ["hook", "proof", "proof", "close"],
+      "why": "Read as a showcase, so the shape is hook, two proof shots, close. Showing beats explaining: the fastest way to make someone want a thing is to let them watch it work."
+    },
+    "demo": {
+      "label": "walk through how it works",
+      "match": ["demo", "walkthrough", "walk through", "how it works", "tutorial", "show how"],
+      "beats": ["hook", "step", "step", "step", "close"],
+      "why": "Read as a demo, so it is a hook and three steps. Three is the most a viewer holds without a scrub bar."
+    },
+    "launch": {
+      "label": "announce it",
+      "match": ["launch", "announce", "announcement", "shipping", "we shipped", "introducing", "release"],
+      "beats": ["hook", "claim", "proof", "close"],
+      "why": "Read as a launch, so the claim lands before the proof. An announcement that opens with features has already lost the people who did not know what it was."
+    },
+    "ad": {
+      "label": "sell it",
+      "match": ["ad", "advert", "advertisement", "commercial", "campaign", "paid"],
+      "beats": ["hook", "tension", "proof", "close"],
+      "why": "Read as an ad, so there is a tension beat before the proof. Nothing is worth buying until something is wrong."
+    },
+    "teaser": {
+      "label": "make them curious",
+      "match": ["teaser", "tease", "coming soon", "trailer", "sneak peek"],
+      "beats": ["hook", "tension", "close"],
+      "why": "Read as a teaser, so it withholds. A teaser that shows the product is an ad with less time."
+    }
+  },
+
+  "tones": {
+    "confident": {
+      "label": "confident",
+      "match": ["confident", "bold", "punchy", "strong", "clean"],
+      "fontWeight": "bold",
+      "animIn": "fade",
+      "animOut": "fade",
+      "animDuration": "8f",
+      "background": "#050505",
+      "ink": "#FFFFFF",
+      "accent": "#4F7DFF",
+      "why": "Confident by default: hard cuts and short fades. Motion that announces itself reads as a template."
+    },
+    "energetic": {
+      "label": "energetic",
+      "match": ["energetic", "fast", "hype", "exciting", "snappy", "kinetic", "viral"],
+      "fontWeight": "bold",
+      "animIn": "slideUp",
+      "animOut": "fade",
+      "animDuration": "5f",
+      "background": "#0A0A0A",
+      "ink": "#FFFFFF",
+      "accent": "#FF4D2E",
+      "why": "Energetic, so entrances have direction and every beat is shorter than it wants to be."
+    },
+    "calm": {
+      "label": "calm",
+      "match": ["calm", "quiet", "minimal", "elegant", "premium", "soft", "understated"],
+      "fontWeight": "normal",
+      "animIn": "fade",
+      "animOut": "fade",
+      "animDuration": "20f",
+      "background": "#0E0E10",
+      "ink": "#F2F2F2",
+      "accent": "#9AA3B2",
+      "why": "Calm, so the fades are long and nothing slides. Restraint is the only way a short video reads as expensive."
+    },
+    "technical": {
+      "label": "technical",
+      "match": ["technical", "developer", "dev", "engineer", "api", "cli", "terminal", "code"],
+      "fontWeight": "normal",
+      "animIn": "fade",
+      "animOut": "fade",
+      "animDuration": "10f",
+      "background": "#0B0D10",
+      "ink": "#E6EDF3",
+      "accent": "#3FB950",
+      "why": "Technical, so the type is monospace-adjacent and the motion stays out of the way. This audience reads the frame."
+    }
+  },
+
+  "durationHints": [
+    {
+      "match": ["quick", "short", "snappy", "fast", "brief", "tight"],
+      "scale": 0.65,
+      "why": "You asked for something short, so the platform default was cut to about two thirds."
+    },
+    {
+      "match": ["long", "detailed", "in depth", "in-depth", "thorough", "full", "deep dive"],
+      "scale": 1.5,
+      "why": "You asked for depth, so the platform default was stretched by half."
+    }
+  ],
+
+  "explicitDuration": {
+    "_comment": "Matched before anything else. A number the user typed always beats a default.",
+    "units": {
+      "seconds": { "match": ["second", "seconds", "sec", "secs", "s"], "multiplier": 1 },
+      "minutes": { "match": ["minute", "minutes", "min", "mins"], "multiplier": 60 },
+      "hours": { "match": ["hour", "hours", "hr", "hrs"], "multiplier": 3600 }
+    },
+    "words": {
+      "half a minute": 30,
+      "a minute": 60,
+      "two minutes": 120,
+      "ten seconds": 10,
+      "fifteen seconds": 15,
+      "thirty seconds": 30
+    },
+    "why": "{seconds} seconds, because you asked for exactly that.",
+    "minSeconds": 3,
+    "maxSeconds": 600,
+    "tooLong": "{seconds}s is past the {max}s ceiling in video.json. A render that long is an hour of machine time and almost never what was meant.",
+    "tooShort": "{seconds}s is under the {min}s floor in video.json. Nothing legible fits."
+  },
+
+  "aspectOverride": {
+    "_comment": "An aspect said out loud always beats the one implied by the platform.",
+    "options": [
+      { "match": ["9:16", "vertical", "portrait", "upright"], "aspect": "9:16", "width": 1080, "height": 1920, "why": "9:16, because you asked for vertical outright." },
+      { "match": ["16:9", "horizontal", "widescreen", "landscape"], "aspect": "16:9", "width": 1920, "height": 1080, "why": "16:9, because you asked for landscape outright." },
+      { "match": ["1:1", "square"], "aspect": "1:1", "width": 1080, "height": 1080, "why": "1:1, because you asked for square outright." },
+      { "match": ["4:5", "portrait feed"], "aspect": "4:5", "width": 1080, "height": 1350, "why": "4:5, because you asked for the tall feed crop outright." }
+    ]
+  },
+
+  "beats": {
+    "_comment": [
+      "The shot library. Each beat is one entity in the composition, and `jsx` is the literal",
+      "source written into the .jsx file with <<tokens>> substituted. Tokens available to every",
+      "beat: width height start end sourceIn text subject ink accent background fontWeight",
+      "fontSize animIn animOut animDuration index footage logo.",
+      "",
+      "The delimiter is <<angle brackets>> and not {{braces}} because these templates are JSX,",
+      "where braces are syntax. A numeric prop must be written `start={<<start>>}`: the braces",
+      "belong to the JSX, the angle brackets are the token. Writing `start={{start}}` produces",
+      "`start=0`, which is not valid JSX.",
+      "",
+      "Beats are deliberately typographic rather than decorative. The editor's own guidance is that",
+      "chrome, scaffolding and ornament draw from a visual budget whose default balance is zero, so",
+      "there are no dividers, no eyebrows, no underlines and no boxes here. A cut and a change of",
+      "size separate two ideas without any of it.",
+      "",
+      "`weight` is how the duration is split between the beats of a purpose."
+    ],
+    "hook": {
+      "label": "hook",
+      "match": ["hook", "opener", "cold open"],
+      "weight": 1.4,
+      "fontScale": 0.075,
+      "text": "{subject}",
+      "why": "Opens on the subject alone, held large. The first frame is the only one everybody sees, so it carries the whole idea and nothing else.",
+      "jsx": [
+        "<text",
+        "  start={<<start>>} end={<<end>>}",
+        "  fill=\"<<ink>>\" fontSize={<<fontSize>>} fontWeight=\"<<fontWeight>>\"",
+        "  textAlign=\"center\" textBaseline=\"middle\"",
+        "  animations={[{ type: \"<<animIn>>\", duration: \"<<animDuration>>\" }, { type: \"<<animOut>>\", phase: \"out\", duration: \"<<animDuration>>\" }]}",
+        ">",
+        "  <<text>>",
+        "</text>"
+      ]
+    },
+    "claim": {
+      "label": "claim",
+      "match": ["claim", "promise", "pitch"],
+      "weight": 1.0,
+      "fontScale": 0.055,
+      "text": "{subject}",
+      "why": "States the claim once, in the accent colour, so the announcement has a sentence someone could repeat.",
+      "jsx": [
+        "<text",
+        "  start={<<start>>} end={<<end>>}",
+        "  fill=\"<<accent>>\" fontSize={<<fontSize>>} fontWeight=\"<<fontWeight>>\"",
+        "  textAlign=\"center\" textBaseline=\"middle\"",
+        "  animations={[{ type: \"<<animIn>>\", duration: \"<<animDuration>>\" }, { type: \"<<animOut>>\", phase: \"out\", duration: \"<<animDuration>>\" }]}",
+        ">",
+        "  <<text>>",
+        "</text>"
+      ]
+    },
+    "tension": {
+      "label": "tension",
+      "match": ["tension", "problem", "pain", "before"],
+      "weight": 1.0,
+      "fontScale": 0.05,
+      "text": "Before {subject}",
+      "why": "One beat of what it was like before. Nothing is worth watching until something is wrong.",
+      "jsx": [
+        "<text",
+        "  start={<<start>>} end={<<end>>}",
+        "  fill=\"<<ink>>\" fontSize={<<fontSize>>} fontWeight=\"normal\"",
+        "  textAlign=\"center\" textBaseline=\"middle\"",
+        "  animations={[{ type: \"<<animIn>>\", duration: \"<<animDuration>>\" }, { type: \"<<animOut>>\", phase: \"out\", duration: \"<<animDuration>>\" }]}",
+        ">",
+        "  <<text>>",
+        "</text>"
+      ]
+    },
+    "proof": {
+      "label": "proof",
+      "match": ["proof", "footage", "screen recording", "screencap", "b-roll", "b roll", "show it working"],
+      "weight": 1.6,
+      "fontScale": 0.04,
+      "text": "{subject}",
+      "why": "The shot that carries the video: real footage of the thing working. Drop a screen recording into `footage` in the spec and it lands here instead of the placeholder.",
+      "requiresFootage": true,
+      "jsx": [
+        "<video",
+        "  src=\"<<footage>>\"",
+        "  width={<<width>>} height={<<height>>}",
+        "  start={<<start>>} end={<<end>>} sourceIn={<<sourceIn>>}",
+        "  animations={[{ type: \"<<animIn>>\", duration: \"<<animDuration>>\" }]}",
+        "/>"
+      ],
+      "placeholderJsx": [
+        "{/* No footage was supplied, so this beat is a hold. Put a screen recording",
+        "    into the spec's `footage` list and re-run: it lands here as a <video>. */}",
+        "<text",
+        "  start={<<start>>} end={<<end>>}",
+        "  fill=\"<<accent>>\" fontSize={<<fontSize>>} fontWeight=\"<<fontWeight>>\"",
+        "  textAlign=\"center\" textBaseline=\"middle\"",
+        "  animations={[{ type: \"<<animIn>>\", duration: \"<<animDuration>>\" }, { type: \"<<animOut>>\", phase: \"out\", duration: \"<<animDuration>>\" }]}",
+        ">",
+        "  <<text>>",
+        "</text>"
+      ]
+    },
+    "step": {
+      "label": "step",
+      "match": ["step", "stage"],
+      "weight": 1.2,
+      "fontScale": 0.045,
+      "text": "{index}. {subject}",
+      "why": "One numbered step per shot. Numbering is the cheapest way to tell a viewer how much is left.",
+      "requiresFootage": true,
+      "jsx": [
+        "<video",
+        "  src=\"<<footage>>\"",
+        "  width={<<width>>} height={<<height>>}",
+        "  start={<<start>>} end={<<end>>} sourceIn={<<sourceIn>>}",
+        "  animations={[{ type: \"<<animIn>>\", duration: \"<<animDuration>>\" }]}",
+        "/>"
+      ],
+      "placeholderJsx": [
+        "{/* No footage was supplied for this step, so it is set as type. Add a clip",
+        "    to the spec's `footage` list and it becomes a <video> here. */}",
+        "<text",
+        "  start={<<start>>} end={<<end>>}",
+        "  fill=\"<<ink>>\" fontSize={<<fontSize>>} fontWeight=\"<<fontWeight>>\"",
+        "  textAlign=\"center\" textBaseline=\"middle\"",
+        "  animations={[{ type: \"<<animIn>>\", duration: \"<<animDuration>>\" }, { type: \"<<animOut>>\", phase: \"out\", duration: \"<<animDuration>>\" }]}",
+        ">",
+        "  <<text>>",
+        "</text>"
+      ]
+    },
+    "close": {
+      "label": "close",
+      "match": ["close", "ending", "end card", "outro", "sign off", "cta", "call to action"],
+      "weight": 0.9,
+      "fontScale": 0.06,
+      "text": "{subject}",
+      "why": "Ends on the name, held still. The last frame is the one that gets screenshotted.",
+      "jsx": [
+        "<text",
+        "  start={<<start>>} end={<<end>>}",
+        "  fill=\"<<ink>>\" fontSize={<<fontSize>>} fontWeight=\"<<fontWeight>>\"",
+        "  textAlign=\"center\" textBaseline=\"middle\"",
+        "  animations={[{ type: \"<<animIn>>\", duration: \"<<animDuration>>\" }]}",
+        ">",
+        "  <<text>>",
+        "</text>"
+      ]
+    },
+    "logo": {
+      "label": "logo",
+      "match": ["logo", "end on the logo", "logo at the end", "brand mark", "wordmark"],
+      "weight": 0.7,
+      "fontScale": 0.05,
+      "text": "{subject}",
+      "why": "A held logo card at the end, because you asked for one.",
+      "jsx": [
+        "<image",
+        "  src=\"<<logo>>\"",
+        "  width={<<width>>} height={<<height>>}",
+        "  start={<<start>>} end={<<end>>}",
+        "  animations={[{ type: \"<<animIn>>\", duration: \"<<animDuration>>\" }]}",
+        "/>"
+      ],
+      "placeholderJsx": [
+        "{/* No logo file in the spec, so the wordmark is set as type. Put a path",
+        "    into the spec's `logo` field and it becomes an <image> here. */}",
+        "<text",
+        "  start={<<start>>} end={<<end>>}",
+        "  fill=\"<<ink>>\" fontSize={<<fontSize>>} fontWeight=\"bold\"",
+        "  textAlign=\"center\" textBaseline=\"middle\"",
+        "  animations={[{ type: \"<<animIn>>\", duration: \"<<animDuration>>\" }]}",
+        ">",
+        "  <<text>>",
+        "</text>"
+      ]
+    }
+  },
+
+  "question": {
+    "_comment": [
+      "At most one, and only when guessing wrong throws away a whole render. Aspect ratio is the",
+      "only decision on this list that cannot be fixed after the fact: a 16:9 file is useless on a",
+      "vertical surface, and every other wrong guess (length, tone, wording) is a re-run of a",
+      "composition that already exists. So the question fires only when the prompt names no",
+      "platform, no aspect, and no purpose that implies one."
+    ],
+    "askWhen": ["noPlatformSignal", "noAspectSignal"],
+    "text": "Where is this going? That is the only thing I cannot guess safely, because aspect ratio is the one decision a re-render cannot fix.",
+    "hint": "Answer in one word, or add --assume to take the default.",
+    "defaultNote": "Nothing said where this was going, so it was built for {label} ({aspect}). If that is wrong, say the surface and it re-plans."
+  },
+
+  "subject": {
+    "_comment": [
+      "How the thing the video is ABOUT gets pulled out of a sentence. `strip` phrases are removed",
+      "from the front and back; whatever survives is the subject. It is deliberately dumb: a",
+      "subject that comes out slightly wrong is one word to correct, and a clever extractor that",
+      "is confidently wrong is not."
+    ],
+    "strip": [
+      "make me a video", "make a video", "make me a", "make me", "create a video", "create me a video",
+      "i need a video", "i want a video", "can you make a video", "build me a video", "generate a video",
+      "video showing off", "video showing", "video about", "video for", "video of", "a video",
+      "showing off", "show off", "showcase", "demo of", "demo for", "walkthrough of",
+      "announcing", "launching", "teaser for", "trailer for", "ad for", "advert for",
+      "please", "thanks", "for me", "asap", "quickly"
+    ],
+    "leadingFillers": ["a", "an", "the", "my", "our", "some", "this", "that", "it", "about", "for", "of", "on"],
+    "minChars": 2,
+    "maxWords": 8,
+    "refuseWhy": "nothing in that prompt says what the video is ABOUT. Everything else here can be guessed from a default; the subject cannot be invented, and a video about nothing is a wasted render. Say the thing, e.g. \"make me a video showing off Toolbay\".",
+    "why": "The subject was read as \"{subject}\". If that is not the name that should be on screen, say the right one and everything else stays."
+  },
+
+  "memory": {
+    "_comment": [
+      "Corrections are not this skill's to store. skills/memory/ already keeps a correction with",
+      "the reason it was given, redacts credentials before the write, and can be interrogated and",
+      "deleted, so this skill CALLS it and holds nothing of its own. Recalled entries are matched",
+      "against the very same match tables above, which is why 'always end on the logo' turns into",
+      "the logo beat without anything here knowing that sentence."
+    ],
+    "script": "../memory/scripts/tb-memory.mjs",
+    "_recallQueryWhy": [
+      "Empty on purpose, and it was 'video' for exactly as long as it took to test. `recall <query>`",
+      "scores stored entries against the query text, and the sentence people actually record is",
+      "'always end on the logo', which shares no word with 'video' and therefore came back with zero",
+      "results while memory was on and the entry was sitting right there. Empty means 'everything in",
+      "scope', and relevance is then decided by the match tables above. Set it only if you want the",
+      "memory layer's own scoring to pre-filter, and check that corrections still land if you do."
+    ],
+    "recallQuery": "",
+    "offNote": "Memory is off, so nothing you have corrected before is being applied here. Turn it on once with `tb-memory enable` and a correction like \"always end on the logo\" sticks for every video after it.",
+    "unavailableNote": "The memory layer could not be reached ({reason}), so this plan is built from video.json alone and no past correction was applied.",
+    "appliedNote": "Applied because you said so before: \"{text}\"",
+    "recordHint": "To make a correction stick: node scripts/tb-video.mjs remember \"<what>\" --because \"<why>\""
+  },
+
+  "output": {
+    "_comment": "Where the plan, the composition and the render land. Never /tmp; the resolver refuses it.",
+    "dir": ".toolbay/video",
+    "compositionFile": "composition.jsx",
+    "specFile": "spec.json",
+    "renderFile": "{slug}.{container}"
+  }
+}
