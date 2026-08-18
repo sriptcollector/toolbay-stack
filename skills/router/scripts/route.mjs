@@ -615,9 +615,16 @@ function counterfactual(request, catalog, d) {
 
 // ----------------------------------------------------------------- commands
 
-function cmdExplain(request, roots, { modeOverride = null } = {}) {
+/** The skill name off a candidate row, wherever the row happens to carry it. */
+function nameOf(row) {
+  if (!row) return null;
+  if (typeof row.skill === "string") return row.skill;
+  return row.skill?.name ?? row.name ?? null;
+}
+
+function cmdExplain(request, roots, { modeOverride = null, asJson = false } = {}) {
   if (!request) {
-    out("Usage: route.mjs explain \"<the user's request>\" [--mode <name>] [--root <dir>]");
+    out("Usage: route.mjs explain \"<the user's request>\" [--mode <name>] [--root <dir>] [--json]");
     process.exitCode = 1;
     return;
   }
@@ -625,6 +632,75 @@ function cmdExplain(request, roots, { modeOverride = null } = {}) {
   const res = activeMode(modeOverride);
   const d = decide(request, catalog, res.mode);
   const cf = counterfactual(request, catalog, d);
+
+  // `--json` exists so that other skills can ROUTE THROUGH THIS ONE rather than
+  // grow a second matcher.
+  //
+  // /goal needs to route each step of a plan. Its options were to re-implement
+  // scoring (two matchers that will disagree the first time either is touched,
+  // and the disagreement will be invisible), to copy this whole file into its
+  // own directory (a thousand lines kept byte-identical for one function), or
+  // to read prose written for a human with grep. All three are worse than one
+  // machine-readable surface on the decision that already exists.
+  //
+  // The shape is the decision, not the rendering: whatever `decide` concluded,
+  // plus enough of the candidate rows to show the work. `strength` is included
+  // explicitly so a caller can tell a confident pick from a guess WITHOUT
+  // re-deriving the threshold — a caller that has to know STRONG is 10 is a
+  // caller that breaks silently when STRONG becomes 12.
+  if (asJson) {
+    // `d.best` is the TOP-SCORING ROW, which is not the same thing as a
+    // decision, and conflating the two here would be a fail-open bug shipped
+    // through a machine-readable surface.
+    //
+    // Measured: `explain "translate this document into Farsi"` resolves to
+    // tier 3, "no skill fits — answer directly". Its top row is still
+    // document-generate, scoring 0.5 on the word "document". A caller reading
+    // `pick.skill` would run a document generator against a translation
+    // request, and would do it while the human-facing rendering of the very
+    // same decision correctly says no skill fits.
+    //
+    // So `pick` is populated ONLY when the tier actually chose a skill. The top
+    // row is still reported, under a name that cannot be mistaken for a
+    // decision, because hiding it would make the scoring unauditable.
+    const chose = /^[12]\./.test(String(d.tier || ""));
+    const best = d.best || null;
+    out(
+      JSON.stringify(
+        {
+          request,
+          mode: { label: res.mode.label, builtin: !!res.mode.builtin, source: res.source ?? null },
+          tier: d.tier,
+          action: d.action,
+          needs: d.needs,
+          topCandidate: best ? { skill: nameOf(best), score: best.total ?? null } : null,
+          pick: chose && best
+            ? {
+                // A row carries the whole skill record under `.skill`; emitting
+                // that verbatim would put the skill's full description and
+                // trigger list into every caller's stdout, which is the context
+                // cost this package exists to avoid. Name only.
+                skill: nameOf(best),
+                score: best.total ?? null,
+                strength: (best.total ?? 0) >= STRONG ? "strong" : (best.total ?? 0) >= WEAK ? "weak" : "none",
+                why: Array.isArray(best.why) ? best.why : best.why ? [best.why] : [],
+              }
+            : null,
+          thresholds: { strong: STRONG, weak: WEAK },
+          candidates: (d.rows || []).slice(0, 8).map((r) => ({
+            skill: nameOf(r),
+            score: r.total ?? null,
+            declared: r.declared ?? null,
+          })),
+          marketplace: { offered: !!d.market, sell: !!d.sell },
+          problems: d.problems || [],
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
 
   out();
   out(bold("  Request"));
@@ -837,6 +913,57 @@ function selftest() {
     check("explain routes a request the bundled skills cover", 0, r.status, r.stderr.slice(0, 200));
     check("...and picks a local skill rather than the marketplace", true, /1\. local skill/.test(r.stdout), r.stdout.slice(-400));
   }
+
+  // ---- the --json surface, which other skills route THROUGH
+  //
+  // These exist because `d.best` is the top-scoring row whether or not the
+  // router actually chose anything. Emitting it as `pick` shipped a fail-open
+  // bug through a machine-readable API: `explain "translate this document into
+  // Farsi"` lands on tier 3 ("no skill fits, answer directly") while its top
+  // row is document-generate at 0.5, matched on the word "document". The prose
+  // rendering said no skill fits. The JSON said run document-generate.
+  {
+    const parse = (args) => {
+      const r = runSelf(args);
+      try {
+        return { ok: r.status === 0, json: JSON.parse(r.stdout || "{}") };
+      } catch {
+        return { ok: false, json: null };
+      }
+    };
+
+    const covered = parse(["explain", "the tests are failing and I dont know why", "--json"]);
+    check("explain --json emits parseable JSON", true, covered.ok);
+    check("...and picks a skill when one genuinely covers the request", "investigate", covered.json?.pick?.skill ?? null);
+    check("...reporting the pick as a NAME, not the whole skill record", "string", typeof (covered.json?.pick?.skill ?? null));
+    check("...with a real score rather than null", true, typeof covered.json?.pick?.score === "number" && covered.json.pick.score > 0);
+    check("...labelled strong so a caller need not re-derive the threshold", "strong", covered.json?.pick?.strength ?? null);
+    check("...and publishes the thresholds it used", true, covered.json?.thresholds?.strong === STRONG);
+
+    const uncovered = parse(["explain", "translate this document into Farsi", "--json"]);
+    check("a request no skill covers lands on answer-directly", true, /^3\./.test(uncovered.json?.tier ?? ""));
+    // Asserted as an explicit `=== null`, not via `?? "MISSING"`: `??` treats
+    // null as nullish, so the fallback fires on exactly the value under test
+    // and the assertion reports a failure whether the field is null or absent.
+    // The first version of this line did that and failed against correct code.
+    check("...and pick is NULL, never the top-scoring near-miss", true, uncovered.json?.pick === null);
+    check("...with the key present rather than omitted", true, uncovered.json != null && "pick" in uncovered.json);
+    check("...while the near-miss is still visible for auditing", true, typeof uncovered.json?.topCandidate?.skill === "string");
+    check("...and the near-miss is NOT presented as a decision", true, uncovered.json?.topCandidate?.skill !== (uncovered.json?.pick?.skill ?? null));
+    check(
+      "the JSON tier and the pick can never disagree",
+      true,
+      (() => {
+        for (const req of ["ship this branch", "translate into Farsi", "why is this 500ing", "make me a sandwich"]) {
+          const j = parse(["explain", req, "--json"]).json;
+          if (!j) return false;
+          const chose = /^[12]\./.test(j.tier || "");
+          if (chose !== (j.pick !== null)) return false;
+        }
+        return true;
+      })()
+    );
+  }
   check("explain with no request is refused", 1, runSelf(["explain"]).status);
   check("an unknown command is refused", 1, runSelf(["nonsense"]).status);
   // A stray argument on a subcommand that takes none used to be dropped in
@@ -985,6 +1112,7 @@ for (let i = 0; i < argv.length; i += 1) {
 }
 const check = argv.includes("--check");
 const bundledOnly = argv.includes("--bundled");
+const asJson = argv.includes("--json");
 const positional = argv.filter((a) => !a.startsWith("--"));
 const roots = defaultRoots(extraRoots);
 const [cmd, ...rest] = positional;
@@ -1000,7 +1128,7 @@ if (NO_ARGS.has(cmd) && rest.length) {
   out("Nothing was run. An argument this command does not understand is not an argument it may ignore.");
   process.exitCode = 1;
 } else if (!cmd || cmd === "help" || cmd === "-h" || cmd === "--help") help();
-else if (cmd === "explain" || cmd === "why") cmdExplain(rest.join(" "), roots, { modeOverride });
+else if (cmd === "explain" || cmd === "why") cmdExplain(rest.join(" "), roots, { modeOverride, asJson });
 else if (cmd === "catalog") cmdCatalog(roots, { check, bundledOnly });
 else if (cmd === "list") cmdList(roots);
 else if (cmd === "selftest") selftest();
