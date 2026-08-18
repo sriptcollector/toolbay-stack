@@ -39,6 +39,7 @@ Copyright (c) 2026 Toolbay, MIT licensed:
     skills/memory/       the correction-recall layer
     skills/video/        the prompt-to-video layer
     skills/backtest/     the setup-backtest harness
+    skills/goal/         the goal-to-plan decomposer
     docs/
 
 skills/modes/, skills/suggest/, skills/memory/ and skills/backtest/ have no
@@ -76,7 +77,7 @@ gstack in that skill's own header.
 Files derived from gstack
 -------------------------
 
-EVERY skill directory in this repository except the five named as new work above
+EVERY skill directory in this repository except those named as new work above
 implements a user-facing contract taken from gstack. The code is a rewrite rather
 than a copy, but the skill names, the command names, the option semantics, and
 the behaviour a user relies on are Garry Tan's design. Each such file carries an

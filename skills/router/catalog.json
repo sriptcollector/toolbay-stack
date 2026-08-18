@@ -494,6 +494,31 @@
       "cost": "low"
     },
     {
+      "name": "goal",
+      "description": "Say what you are trying to achieve and get back an ordered plan of skills to run, each one offered rather than performed. Reports the parts of the goal nothing covers as gaps instead of dropping them, labels weak matches as guesses and never lets one lead the plan, and refuses a goal too vague to plan rather than returning steps that would fit any project. Use to plan a goal, decide what to run, or ask what should I do to achieve something.",
+      "provides": [
+        "goal-decomposition",
+        "multi-skill-planning",
+        "coverage-gap-reporting"
+      ],
+      "provenance": "declared",
+      "triggers": [
+        "what should I run",
+        "plan this",
+        "how do I get this done",
+        "I want to",
+        "my goal is",
+        "figure out what to do",
+        "what skills do I need"
+      ],
+      "platforms": [
+        "win32",
+        "darwin",
+        "linux"
+      ],
+      "cost": "low"
+    },
+    {
       "name": "gstack-upgrade",
       "description": "Upgrade Toolbay Stack to the latest published release and prove it landed. Backs up what it is about to overwrite, installs, then compares every installed file against the release by SHA-256, and rolls back if the comparison fails. A failed update check reports CHECK_FAILED and exits non-zero instead of being cached as \"up to date\". Use when asked to upgrade, update, or check the version of the stack.",
       "provides": [
