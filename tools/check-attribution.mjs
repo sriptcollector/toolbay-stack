@@ -144,8 +144,24 @@ else if (Number(claimed[1]) !== derivedOnDisk) {
 // ---- LICENSE
 try {
   const lic = fs.readFileSync(path.join(ROOT, "LICENSE"), "utf8");
+  // The copyright line is the part MIT actually requires to travel with copies,
+  // so it is still asserted here, in LICENSE, without exception.
   if (!/Copyright \(c\) 2026 Garry Tan/.test(lic)) fail("LICENSE no longer carries Garry Tan's copyright line");
-  if (!lic.includes(UPSTREAM)) fail(`LICENSE no longer points at ${UPSTREAM}`);
+
+  // The upstream URL is asserted in LICENSE **or** NOTICE rather than LICENSE
+  // alone. LICENSE now holds the MIT grant verbatim and nothing else, because
+  // any prose around it drops GitHub's licensee below its match threshold and
+  // the project gets reported as NOASSERTION — legally MIT, machine-readably
+  // nothing, which no scanner or corporate policy tool can act on.
+  //
+  // This is deliberately NOT a weakening: the URL must still exist in a
+  // committed, checked file, and NOTICE is where the file-by-file derivation
+  // record already lives. What would be a weakening is dropping the assertion
+  // because it became inconvenient, so it moved instead.
+  const noticeText = fs.existsSync(path.join(ROOT, "NOTICE")) ? fs.readFileSync(path.join(ROOT, "NOTICE"), "utf8") : "";
+  if (!lic.includes(UPSTREAM) && !noticeText.includes(UPSTREAM)) {
+    fail(`neither LICENSE nor NOTICE points at ${UPSTREAM}`);
+  }
 } catch {
   fail("LICENSE is missing");
 }
