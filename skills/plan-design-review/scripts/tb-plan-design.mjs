@@ -539,11 +539,42 @@ function mockupRows(text) {
   return found;
 }
 
+/**
+ * Unwrap a table cell down to the path it holds.
+ *
+ * THE BUG THIS REPLACES. The previous line was
+ *
+ *     .replace(/[`*_]/g, "")
+ *
+ * which strips those characters EVERYWHERE, not just where they wrap the cell.
+ * `_` and `*` are legal filename characters and `_` is an extremely common one
+ * — `my_project`, `src_old`, `_drafts`. So a plan citing
+ *
+ *     C:/Users/me/code/_clonecheck/mockups/drawer.png
+ *
+ * was silently rewritten to  .../code/clonecheck/...  and then reported as
+ * `dangling`, i.e. "this file does not exist". The file existed. The parser had
+ * renamed it. The verdict blamed the artifact, which is the worst place to
+ * point, because the person goes looking for a mockup that is sitting right
+ * where they left it.
+ *
+ * Found when a fresh clone into a directory whose name began with an underscore
+ * failed seven assertions that pass in the directory this was developed in.
+ *
+ * So: strip emphasis only when it genuinely WRAPS the cell, longest delimiter
+ * first, repeatedly (`**\`x\`**`), and never touch the interior.
+ */
 function stripMd(cell) {
-  return String(cell)
+  let s = String(cell)
     .replace(/!?\[[^\]]*\]\(([^)]+)\)/, "$1") // markdown link/image -> its target
-    .replace(/[`*_]/g, "")
     .trim();
+  const DELIMS = ["***", "___", "**", "__", "*", "_", "``", "`"];
+  for (let guard = 0; guard < 8; guard += 1) {
+    const d = DELIMS.find((x) => s.length > 2 * x.length && s.startsWith(x) && s.endsWith(x));
+    if (!d) break;
+    s = s.slice(d.length, -d.length).trim();
+  }
+  return s;
 }
 
 function checkMockups(text) {
@@ -1366,6 +1397,23 @@ function selftest() {
     fs.rmSync(volatilePng, { force: true });
   }
   {
+    // PATHS ARE NOT PROSE. `_` and `*` are legal filename characters, and the
+    // parser used to strip them everywhere rather than only where they wrap the
+    // cell — turning /code/_clonecheck/x.png into /code/clonecheck/x.png and
+    // then calling the file dangling. These assert the interior survives while
+    // real wrapping emphasis is still removed.
+    check("an underscore inside a path is preserved", "/a/_b/c_d.png", stripMd("/a/_b/c_d.png"));
+    check("a leading-underscore directory survives", "C:/x/_drafts/m.png", stripMd("C:/x/_drafts/m.png"));
+    check("an asterisk inside a path is preserved", "/a/b*c.png", stripMd("/a/b*c.png"));
+    check("wrapping bold is still removed", "/a/b.png", stripMd("**/a/b.png**"));
+    check("wrapping italics is still removed", "/a/b.png", stripMd("*/a/b.png*"));
+    check("wrapping underscore emphasis is still removed", "/a/b.png", stripMd("_/a/b.png_"));
+    check("wrapping backticks are still removed", "/a/b.png", stripMd("`/a/b.png`"));
+    check("bold AND backticks unwrap together", "/a/b.png", stripMd("**`/a/b.png`**"));
+    check("wrapping emphasis around an underscored path keeps the underscore", "/a/_b.png", stripMd("**/a/_b.png**"));
+    check("a markdown link still resolves to its target", "/a/_b.png", stripMd("[mockup](/a/_b.png)"));
+    check("a bare underscore-only cell is left alone", "_", stripMd("_"));
+
     // The API error body written to a .png. Every path that only checks existence
     // passes this, and the Read tool shows the user nothing.
     const errPng = path.join(durable, "variant-A.png");
@@ -1622,7 +1670,9 @@ DESIGN OUTSIDE VOICES — LITMUS SCORECARD:
     ]) check(`${label} survived the trim`, true, re.test(all));
   }
 
-  const EXPECTED = 92;
+  // 92 -> 103: eleven assertions added when stripMd was found to be deleting
+  // `_` and `*` from the interior of paths, not just from wrapping emphasis.
+  const EXPECTED = 103;
   results.push({
     name: `all ${EXPECTED} assertions ran`,
     expected: String(EXPECTED),
