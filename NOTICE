@@ -125,3 +125,17 @@ Third-party components
 Toolbay Stack's installer CLI is derived from the `toolbay` npm CLI
 (packages/toolbay-cli in the Toolbay monorepo), Copyright (c) 2026 Toolbay,
 MIT licensed.
+
+
+Why the explanation lives here and not in LICENSE
+-------------------------------------------------------------------------------
+
+LICENSE contains the MIT grant and nothing else, verbatim. An earlier version
+explained this derivation inside that file, and GitHub reported the project as
+NOASSERTION — legally MIT, machine-readably nothing, so no scanner, package
+index or corporate policy tool could confirm what it is. Automated license
+detectors match the grant text closely and are thrown by prose around it.
+
+So the grant stays clean and every word of explanation lives in this file,
+which is what a NOTICE file is for. Nothing about the attribution is reduced by
+the move; it is more findable here, next to the file-by-file record.

@@ -20,21 +20,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
--------------------------------------------------------------------------------
-
-Toolbay Stack is a derivative work of gstack
-(https://github.com/garrytan/gstack), which is MIT licensed and Copyright (c)
-2026 Garry Tan. That copyright notice is preserved above as the license
-requires, and applies to the portions of this software derived from gstack.
-New work original to Toolbay Stack is Copyright (c) 2026 Toolbay and is
-released under the same terms.
-
-See NOTICE for the file-by-file record of what is derived and what is original.
-
-Note on the two blocks: the MIT text above is kept verbatim and unbroken so
-that automated license detectors (GitHub's licensee, npm, SPDX scanners) can
-recognise it. An earlier version explained the derivation in the middle of the
-grant, between the copyright lines and "Permission is hereby granted", and
-GitHub reported the license as NOASSERTION — legally MIT, but machine-readably
-nothing. Explanation goes after the grant, never inside it.
