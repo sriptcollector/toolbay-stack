@@ -1,0 +1,39 @@
+# Check every text file out with LF, on every platform.
+#
+# WHY THIS FILE EXISTS, AND WHAT BREAKS WITHOUT IT.
+#
+# Git's `core.autocrlf=true` — the default on a Windows install, and set in
+# every clone made by `gh` — rewrites LF to CRLF on checkout. That is harmless
+# for source you only compile, and it is not harmless here, because several of
+# this project's guarantees are BYTE comparisons:
+#
+#   - tools/sync-guard.mjs asserts the shared engines copied into each skill
+#     are byte-identical to each other.
+#   - `route.mjs catalog --check` asserts the committed catalog matches the
+#     one regenerated from the skills on disk.
+#
+# Measured on a fresh clone before this file existed: catalog.json arrived with
+# 1,474 CRLF line endings and 58,914 bytes against the 57,440 that were
+# committed — a 1,474-byte difference, one per line. The JSON parsed identically
+# and every value matched. Only the bytes differed, so `--check` failed and the
+# test suite reported three failures on a clean clone of a repository whose
+# tests pass in the directory it was published from.
+#
+# That is the worst shape a bug can take here: it cannot be reproduced by the
+# author, it greets every new user on their first `npm test`, and the failure
+# message ("catalog.json does not match the skills on disk") points at the
+# skills, which are fine.
+*               text=auto eol=lf
+
+# Binary files git must never touch.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.webp          binary
+*.ico           binary
+*.pdf           binary
+*.zip           binary
+*.mp4           binary
+*.woff          binary
+*.woff2         binary
