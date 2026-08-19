@@ -42,11 +42,22 @@ structurally cannot copy:
 
 Concretely:
 
-- **Cut what Orion does not use.** gstack carries iOS (`ios-clean`, `ios-fix`,
-  `ios-qa`, `ios-sync`, `ios-design-review`), Conductor hosts, and gbrain
-  plumbing. We ported them for parity. Parity was the wrong goal — it is why we
-  look like a clone. A tighter set that does more is better than a wider set
-  that matches.
+- ~~**Cut what Orion does not use** — the iOS family, gbrain plumbing.~~
+  **WITHDRAWN 2026-08-18.** This was wrong, and the evidence was in the request
+  that started the redesign: when Orion described the feature he wanted, his own
+  example was *"it asks — would you like to run iOS app startup skill?"* He is
+  not carrying the iOS skills for parity. He expects to use them.
+
+  Worth keeping the reasoning visible rather than quietly deleting the bullet,
+  because the mistake is instructive: "cut the parts that look like the thing we
+  forked" optimises for not-resembling-gstack, which is a cosmetic goal wearing
+  a strategic costume. Deleting working, tested skills would have made the
+  product smaller and the resemblance no weaker — the shape is the resemblance,
+  not the inventory.
+
+  **What replaces it:** nothing gets cut for looking derivative. A skill leaves
+  only if it is broken, unused *and* unusable, or duplicated. That is a much
+  higher bar and it will remove far fewer things, which is correct.
 - **Group by intent, not by tool.** gstack's set is a list of commands. Ours
   should be a small number of intents (understand / build / prove / ship /
   learn) that dispatch to engines, with `suggest` and `router` — both ours —

@@ -234,6 +234,56 @@ export function writePlan(plan, goal, cwd = process.cwd()) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Learning which offers get taken.
+ *
+ * A planner that never finds out whether its plan was any good keeps making
+ * the same bad step forever. The signal is `accept` / `skip`, and the more
+ * valuable half is SKIP: a step you took might have been right or might have
+ * been the only option; a step you refused is unambiguous.
+ *
+ * Two rules, because this is the part that quietly becomes surveillance:
+ *
+ *   1. NOTHING IS RECORDED UNLESS /memory IS ENABLED. Memory is opt-in and off
+ *      by default. When it is off, this says so out loud rather than writing
+ *      anywhere, and rather than silently discarding — "not recorded" is a
+ *      fact the user should get to hear.
+ *   2. IT RECORDS THE DECISION, NOT THE PERSON. "skipped /document-generate for
+ *      a translation request" is a fact about a routing mistake. "Orion avoids
+ *      documentation work" is an inference, and an inference stored as a fact
+ *      is how a memory layer starts being wrong confidently.
+ * ------------------------------------------------------------------ */
+
+const MEMORY = path.resolve(HERE, "..", "..", "memory", "scripts", "tb-memory.mjs");
+
+export function memoryEnabled() {
+  if (!fs.existsSync(MEMORY)) return { on: false, why: "the memory skill is not installed" };
+  const r = spawnSync(process.execPath, [MEMORY, "status"], {
+    encoding: "utf8",
+    env: { ...process.env, NO_COLOR: "1" },
+    timeout: 20000,
+  });
+  if (r.status !== 0 && !r.stdout) return { on: false, why: "memory status could not be read" };
+  const on = /MEMORY\s+ON\b/.test(r.stdout || "");
+  return { on, why: on ? null : "memory is off (opt-in). Turn it on with: tb-memory enable --yes" };
+}
+
+export function recordChoice({ verb, step, goal, why }) {
+  const mem = memoryEnabled();
+  if (!mem.on) return { recorded: false, why: mem.why };
+  const note =
+    verb === "skip"
+      ? `Skipped /${step.skill} when planning "${goal}"${why ? ` — ${why}` : ""}. The planner offered it${step.guess ? " as a guess" : ""}.`
+      : `Ran /${step.skill} when planning "${goal}". The planner offered it${step.guess ? " as a guess" : ""}.`;
+  const r = spawnSync(process.execPath, [MEMORY, "record", note], {
+    encoding: "utf8",
+    env: { ...process.env, NO_COLOR: "1" },
+    timeout: 25000,
+  });
+  if (r.status !== 0) return { recorded: false, why: `tb-memory record exited ${r.status}` };
+  return { recorded: true, why: null, note };
+}
+
+/* ------------------------------------------------------------------ *
  * Rendering.
  * ------------------------------------------------------------------ */
 
@@ -351,6 +401,23 @@ function selftest() {
   check("an empty plan renders NO PLAN", true, /NO PLAN/.test(render(p5, "x")));
   check("a guess is visibly marked in the output", true, /a guess/.test(render(p3, "x")));
 
+  // ---- learning must never happen silently, or claim to have happened
+  {
+    const mem = memoryEnabled();
+    check("memory state is a real reading, not an assumption", true, typeof mem.on === "boolean");
+    check("...and when it is off, a reason is given", true, mem.on || typeof mem.why === "string");
+
+    const step = { n: 1, skill: "investigate", guess: false };
+    const r = recordChoice({ verb: "skip", step, goal: "x", why: "wrong tool" });
+    if (mem.on) {
+      check("with memory ON, a choice is recorded", true, r.recorded);
+    } else {
+      check("with memory OFF, NOTHING is recorded", false, r.recorded);
+      check("...and the refusal names why, rather than failing silently", true, /opt-in|not installed|could not be read/.test(r.why || ""));
+    }
+    check("recordChoice never throws, whatever the memory state", true, typeof r.recorded === "boolean");
+  }
+
   // ---- the real router, end to end
   {
     const r = routeIntent("the tests are failing and I dont know why");
@@ -426,8 +493,33 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToP
       try { writePlan(plan, goal); } catch { /* recording is a convenience, not a result */ }
       if (plan.empty) process.exitCode = 1;
     }
+  } else if (cmd === "accept" || cmd === "skip") {
+    const n = Number(args._[1]);
+    let rec;
+    try {
+      rec = JSON.parse(fs.readFileSync(planRecordPath(), "utf8"));
+    } catch {
+      out("\n  no plan recorded yet — run `plan` first\n");
+      process.exitCode = 1;
+      rec = null;
+    }
+    if (rec) {
+      const step = (rec.steps || []).find((s) => s.n === n);
+      if (!step) {
+        out(`\n  no step ${args._[1] ?? "(none given)"} in the last plan (it has ${(rec.steps || []).length})\n`);
+        process.exitCode = 1;
+      } else {
+        const r = recordChoice({ verb: cmd, step, goal: rec.goal, why: typeof args.why === "string" ? args.why : null });
+        out("");
+        out(`  ${cmd === "skip" ? yellow("skipped") : green("accepted")}  step ${n}: /${step.skill}`);
+        // Say which of the two happened. "Noted" when nothing was written is
+        // the small lie that makes a memory layer untrustworthy.
+        out(r.recorded ? dim("  recorded to memory") : dim(`  NOT recorded — ${r.why}`));
+        out("");
+      }
+    }
   } else {
-    out('\n  usage: tb-goal.mjs plan --goal "..." [--json] [--mode <name>] | show | selftest\n');
+    out('\n  usage: tb-goal.mjs plan --goal "..." [--json] [--mode <name>] | accept <n> | skip <n> [--why "..."] | show | selftest\n');
     process.exitCode = 1;
   }
 }
