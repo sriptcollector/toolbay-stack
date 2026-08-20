@@ -5,7 +5,7 @@
 <h1 align="center">Toolbay Stack</h1>
 
 <p align="center">
-  <strong>60 skills for Claude Code. 145 engines. Every one carries its own test, or the suite fails.</strong>
+  <strong>61 skills for Claude Code. 146 engines. Every one carries its own test, or the suite fails.</strong>
 </p>
 
 <p align="center">
